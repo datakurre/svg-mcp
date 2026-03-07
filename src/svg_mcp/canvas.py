@@ -176,4 +176,24 @@ class Canvas:
 
 
 # Global singleton – all tool modules reference this object.
-canvas = Canvas()
+# Named with a leading underscore to avoid shadowing the `svg_mcp.canvas` sub-module
+# when accessed via `svg_mcp.__init__`.
+_canvas_singleton = Canvas()
+
+# Convenience alias used by older code and __init__.py exports.
+canvas = _canvas_singleton
+
+
+def get_canvas() -> Canvas:
+    """Return the current canvas singleton.
+
+    Always returns the up-to-date object even after ``create_canvas`` replaces it.
+    Callers should use ``set_canvas`` to swap in a new instance.
+    """
+    return canvas
+
+
+def set_canvas(new_canvas: Canvas) -> None:
+    """Replace the global canvas singleton."""
+    global canvas
+    canvas = new_canvas

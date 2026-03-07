@@ -1,25 +1,29 @@
-"""Tools for undoing and redoing canvas changes."""
+"""Tool for undoing and redoing canvas changes."""
 
 from __future__ import annotations
 
+from typing import Literal
+
 from mcp import types
 
-import svg_mcp.canvas as _state
 from svg_mcp._helpers import canvas_png_response
+from svg_mcp.canvas import get_canvas as _get_canvas
 from svg_mcp.server import mcp
 
 
 @mcp.tool()
-def undo() -> list[types.ContentBlock]:
-    """Undo the last canvas change (up to 50 steps)."""
-    if _state.canvas.undo():
-        return canvas_png_response("Undo successful.")
-    return canvas_png_response("Nothing to undo.")
+def history(action: Literal["undo", "redo"]) -> list[types.ContentBlock]:
+    """Undo or redo canvas changes.
 
-
-@mcp.tool()
-def redo() -> list[types.ContentBlock]:
-    """Redo the last undone canvas change."""
-    if _state.canvas.redo():
-        return canvas_png_response("Redo successful.")
-    return canvas_png_response("Nothing to redo.")
+    ``action`` must be one of:
+    - ``"undo"`` — revert the last canvas change (up to 50 steps).
+    - ``"redo"`` — re-apply the last undone change.
+    """
+    if action == "undo":
+        if _get_canvas().undo():
+            return canvas_png_response("Undo successful.")
+        return canvas_png_response("Nothing to undo.")
+    else:
+        if _get_canvas().redo():
+            return canvas_png_response("Redo successful.")
+        return canvas_png_response("Nothing to redo.")
