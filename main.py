@@ -21,6 +21,10 @@ _DEFAULT_HEIGHT = 600
 _DEFAULT_BG = "white"
 
 
+# Maximum number of undo snapshots kept in memory
+_MAX_HISTORY = 50
+
+
 class Canvas:
     """In-memory SVG canvas that accumulates elements."""
 
@@ -35,27 +39,105 @@ class Canvas:
         self.background = background
         self.elements: list[dict[str, Any]] = []  # list of {id, svg_fragment}
         self.defs: list[str] = []  # raw <defs> children
+        self._history: list[dict[str, Any]] = []  # undo stack
+        self._future: list[dict[str, Any]] = []   # redo stack
 
     # -- helpers -------------------------------------------------------------
 
     def _next_id(self, prefix: str = "el") -> str:
         return f"{prefix}-{uuid.uuid4().hex[:8]}"
 
+    def _snapshot(self) -> dict[str, Any]:
+        """Return a deep snapshot of mutable state."""
+        import copy
+        return {
+            "elements": copy.deepcopy(self.elements),
+            "defs": list(self.defs),
+        }
+
+    def _push_history(self) -> None:
+        """Save current state to undo stack and clear redo stack."""
+        self._history.append(self._snapshot())
+        if len(self._history) > _MAX_HISTORY:
+            self._history.pop(0)
+        self._future.clear()
+
+    def _restore(self, snapshot: dict[str, Any]) -> None:
+        self.elements = snapshot["elements"]
+        self.defs = snapshot["defs"]
+
+    def undo(self) -> bool:
+        if not self._history:
+            return False
+        self._future.append(self._snapshot())
+        self._restore(self._history.pop())
+        return True
+
+    def redo(self) -> bool:
+        if not self._future:
+            return False
+        self._history.append(self._snapshot())
+        self._restore(self._future.pop())
+        return True
+
     def add_element(self, svg_fragment: str, element_id: str | None = None) -> str:
+        self._push_history()
         eid = element_id or self._next_id()
         self.elements.append({"id": eid, "svg": svg_fragment})
         return eid
 
+    def update_element(self, element_id: str, svg_fragment: str) -> bool:
+        """Replace the SVG fragment of an existing element in-place."""
+        for el in self.elements:
+            if el["id"] == element_id:
+                self._push_history()
+                el["svg"] = svg_fragment
+                return True
+        return False
+
     def remove_element(self, element_id: str) -> bool:
         before = len(self.elements)
+        if before == len([e for e in self.elements if e["id"] != element_id]):
+            return False
+        self._push_history()
         self.elements = [e for e in self.elements if e["id"] != element_id]
-        return len(self.elements) < before
+        return True
+
+    def get_element_svg(self, element_id: str) -> str | None:
+        """Return the raw SVG fragment for a single element, or None."""
+        for el in self.elements:
+            if el["id"] == element_id:
+                return el["svg"]
+        return None
+
+    def move_element(self, element_id: str, delta: int) -> bool:
+        """Move element up (delta>0) or down (delta<0) in the z-order."""
+        idx = next((i for i, e in enumerate(self.elements) if e["id"] == element_id), None)
+        if idx is None:
+            return False
+        new_idx = max(0, min(len(self.elements) - 1, idx + delta))
+        if new_idx == idx:
+            return False
+        self._push_history()
+        el = self.elements.pop(idx)
+        self.elements.insert(new_idx, el)
+        return True
 
     def clear(self) -> None:
+        self._push_history()
         self.elements.clear()
         self.defs.clear()
 
+    def resize(self, width: int, height: int, background: str | None = None) -> None:
+        """Change canvas dimensions (and optionally background) without clearing elements."""
+        self._push_history()
+        self.width = width
+        self.height = height
+        if background is not None:
+            self.background = background
+
     def add_def(self, def_fragment: str) -> None:
+        self._push_history()
         self.defs.append(def_fragment)
 
     # -- rendering -----------------------------------------------------------
@@ -103,21 +185,27 @@ You are an SVG drawing assistant. You have a persistent canvas that you can draw
 
 ## Workflow
 1. Use `create_canvas` to initialise (or reset) the canvas with a desired size and background colour.
-2. Add shapes and elements with tools like `draw_rect`, `draw_circle`, `draw_ellipse`, \
-`draw_line`, `draw_polyline`, `draw_polygon`, `draw_path`, `draw_text`, `draw_image`, \
-and the generic `draw_raw_svg` for anything not covered by a specific tool.
+   Use `resize_canvas` to change dimensions without losing elements.
+2. Add shapes and elements with tools like `draw_rect`, `draw_circle`, `draw_ellipse`,
+   `draw_line`, `draw_polyline`, `draw_polygon`, `draw_path`, `draw_text`, `draw_image`,
+   `draw_group` (for grouped/transformed sets of shapes), and the generic `draw_raw_svg`.
 3. Use `add_def` to add reusable definitions (gradients, patterns, clip-paths, …) to the `<defs>` block.
-4. Use `list_elements` to see all current element IDs, `remove_element` to delete one, \
-or `clear_canvas` to wipe everything.
-5. Use `export_svg` or `export_png` to write the current canvas to a file.
+4. Inspect with `list_elements` and `get_element` (shows a single element's SVG source).
+5. Edit in place with `update_element` — replace any element's SVG without removing it.
+6. Reorder with `bring_forward` / `send_backward` / `bring_to_front` / `send_to_back`.
+7. Undo mistakes with `undo`, re-apply with `redo` (up to 50 steps).
+8. Remove one element with `remove_element`, or wipe everything with `clear_canvas`.
+9. Export with `export_svg` or `export_png`.
 
 Every tool call returns the current canvas rendered as a PNG image so you can visually inspect progress.
 
 ## Tips
 - All coordinates use the SVG coordinate system (origin top-left, y increases downward).
 - Colours accept any CSS colour value (`red`, `#ff0000`, `rgb(255,0,0)`, etc.).
-- The `draw_raw_svg` tool accepts *any* valid SVG fragment — use it for advanced shapes or grouped elements.
-- You can layer elements; they render in the order they were added.
+- All draw tools accept `stroke_dasharray` (e.g. `"5,3"`) for dashed lines.
+- `draw_group` wraps children in `<g transform="...">` — great for translate/rotate/scale sets.
+- `draw_raw_svg` accepts *any* valid SVG fragment as a last resort.
+- Elements render in the order they were added; use reorder tools to change depth.
 """
 
 mcp = FastMCP(
@@ -152,6 +240,7 @@ def _style_attrs(
     stroke: str | None = None,
     stroke_width: float | None = None,
     opacity: float | None = None,
+    stroke_dasharray: str | None = None,
     extra: dict[str, str] | None = None,
 ) -> str:
     """Build an attribute string from common style parameters."""
@@ -162,6 +251,8 @@ def _style_attrs(
         parts.append(f'stroke="{stroke}"')
     if stroke_width is not None:
         parts.append(f'stroke-width="{stroke_width}"')
+    if stroke_dasharray is not None:
+        parts.append(f'stroke-dasharray="{stroke_dasharray}"')
     if opacity is not None:
         parts.append(f'opacity="{opacity}"')
     if extra:
@@ -200,12 +291,13 @@ def draw_rect(
     fill: str = "none",
     stroke: str = "black",
     stroke_width: float = 1,
+    stroke_dasharray: str | None = None,
     opacity: float = 1.0,
     rotation: float = 0,
     element_id: str | None = None,
 ) -> list[types.ContentBlock]:
     """Draw a rectangle on the canvas."""
-    style = _style_attrs(fill=fill, stroke=stroke, stroke_width=stroke_width, opacity=opacity)
+    style = _style_attrs(fill=fill, stroke=stroke, stroke_width=stroke_width, opacity=opacity, stroke_dasharray=stroke_dasharray)
     transform = f' transform="rotate({rotation} {x + width / 2} {y + height / 2})"' if rotation else ""
     svg = (
         f'<rect x="{x}" y="{y}" width="{width}" height="{height}" '
@@ -223,11 +315,12 @@ def draw_circle(
     fill: str = "none",
     stroke: str = "black",
     stroke_width: float = 1,
+    stroke_dasharray: str | None = None,
     opacity: float = 1.0,
     element_id: str | None = None,
 ) -> list[types.ContentBlock]:
     """Draw a circle on the canvas."""
-    style = _style_attrs(fill=fill, stroke=stroke, stroke_width=stroke_width, opacity=opacity)
+    style = _style_attrs(fill=fill, stroke=stroke, stroke_width=stroke_width, opacity=opacity, stroke_dasharray=stroke_dasharray)
     svg = f'<circle cx="{cx}" cy="{cy}" r="{r}" {style} />'
     eid = canvas.add_element(svg, element_id)
     return _canvas_png_response(f"Circle added (id={eid}).")
@@ -242,12 +335,13 @@ def draw_ellipse(
     fill: str = "none",
     stroke: str = "black",
     stroke_width: float = 1,
+    stroke_dasharray: str | None = None,
     opacity: float = 1.0,
     rotation: float = 0,
     element_id: str | None = None,
 ) -> list[types.ContentBlock]:
     """Draw an ellipse on the canvas."""
-    style = _style_attrs(fill=fill, stroke=stroke, stroke_width=stroke_width, opacity=opacity)
+    style = _style_attrs(fill=fill, stroke=stroke, stroke_width=stroke_width, opacity=opacity, stroke_dasharray=stroke_dasharray)
     transform = f' transform="rotate({rotation} {cx} {cy})"' if rotation else ""
     svg = f'<ellipse cx="{cx}" cy="{cy}" rx="{rx}" ry="{ry}" {style}{transform} />'
     eid = canvas.add_element(svg, element_id)
@@ -262,12 +356,13 @@ def draw_line(
     y2: float,
     stroke: str = "black",
     stroke_width: float = 1,
+    stroke_dasharray: str | None = None,
     opacity: float = 1.0,
     stroke_linecap: str = "round",
     element_id: str | None = None,
 ) -> list[types.ContentBlock]:
     """Draw a straight line on the canvas."""
-    style = _style_attrs(stroke=stroke, stroke_width=stroke_width, opacity=opacity)
+    style = _style_attrs(stroke=stroke, stroke_width=stroke_width, opacity=opacity, stroke_dasharray=stroke_dasharray)
     svg = (
         f'<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" '
         f'{style} stroke-linecap="{stroke_linecap}" />'
@@ -282,11 +377,12 @@ def draw_polyline(
     fill: str = "none",
     stroke: str = "black",
     stroke_width: float = 1,
+    stroke_dasharray: str | None = None,
     opacity: float = 1.0,
     element_id: str | None = None,
 ) -> list[types.ContentBlock]:
     """Draw a polyline (open shape). `points` is a space-separated list like '0,0 50,50 100,0'."""
-    style = _style_attrs(fill=fill, stroke=stroke, stroke_width=stroke_width, opacity=opacity)
+    style = _style_attrs(fill=fill, stroke=stroke, stroke_width=stroke_width, opacity=opacity, stroke_dasharray=stroke_dasharray)
     svg = f'<polyline points="{points}" {style} />'
     eid = canvas.add_element(svg, element_id)
     return _canvas_png_response(f"Polyline added (id={eid}).")
@@ -298,11 +394,12 @@ def draw_polygon(
     fill: str = "none",
     stroke: str = "black",
     stroke_width: float = 1,
+    stroke_dasharray: str | None = None,
     opacity: float = 1.0,
     element_id: str | None = None,
 ) -> list[types.ContentBlock]:
     """Draw a polygon (closed shape). `points` is a space-separated list like '100,10 40,198 190,78 10,78 160,198'."""
-    style = _style_attrs(fill=fill, stroke=stroke, stroke_width=stroke_width, opacity=opacity)
+    style = _style_attrs(fill=fill, stroke=stroke, stroke_width=stroke_width, opacity=opacity, stroke_dasharray=stroke_dasharray)
     svg = f'<polygon points="{points}" {style} />'
     eid = canvas.add_element(svg, element_id)
     return _canvas_png_response(f"Polygon added (id={eid}).")
@@ -314,11 +411,12 @@ def draw_path(
     fill: str = "none",
     stroke: str = "black",
     stroke_width: float = 1,
+    stroke_dasharray: str | None = None,
     opacity: float = 1.0,
     element_id: str | None = None,
 ) -> list[types.ContentBlock]:
     """Draw an SVG path. `d` is the path data string (e.g. 'M10 80 C 40 10, 65 10, 95 80 S 150 150, 180 80')."""
-    style = _style_attrs(fill=fill, stroke=stroke, stroke_width=stroke_width, opacity=opacity)
+    style = _style_attrs(fill=fill, stroke=stroke, stroke_width=stroke_width, opacity=opacity, stroke_dasharray=stroke_dasharray)
     svg = f'<path d="{d}" {style} />'
     eid = canvas.add_element(svg, element_id)
     return _canvas_png_response(f"Path added (id={eid}).")
@@ -399,12 +497,130 @@ def add_def(
 
 
 @mcp.tool()
+def resize_canvas(
+    width: int,
+    height: int,
+    background: str | None = None,
+) -> list[types.ContentBlock]:
+    """Resize the canvas without clearing its elements. Optionally change the background colour."""
+    canvas.resize(width, height, background)
+    return _canvas_png_response(
+        f"Canvas resized to {width}×{height}"
+        + (f", background={background}" if background else "") + "."
+    )
+
+
+@mcp.tool()
+def update_element(
+    element_id: str,
+    svg_fragment: str,
+) -> list[types.ContentBlock]:
+    """Replace the SVG fragment of an existing element in-place, identified by its ID.
+
+    Use `get_element` first to fetch the current fragment, edit it, then call this tool.
+    The element stays at the same z-position in the stack.
+    """
+    if canvas.update_element(element_id, svg_fragment):
+        return _canvas_png_response(f"Element '{element_id}' updated.")
+    return _canvas_png_response(f"Element '{element_id}' not found — no changes made.")
+
+
+@mcp.tool()
+def get_element(element_id: str) -> list[types.ContentBlock]:
+    """Return the raw SVG fragment for a single element on the canvas."""
+    svg = canvas.get_element_svg(element_id)
+    if svg is None:
+        return _canvas_png_response(f"Element '{element_id}' not found.")
+    return _canvas_png_response(f"Element '{element_id}':\n```xml\n{svg}\n```")
+
+
+@mcp.tool()
+def draw_group(
+    children: str,
+    transform: str = "",
+    opacity: float = 1.0,
+    element_id: str | None = None,
+) -> list[types.ContentBlock]:
+    """Wrap one or more SVG fragments in a `<g>` group element.
+
+    `children` — raw SVG fragments concatenated as a single string, e.g.
+        '<circle cx="50" cy="50" r="40" fill="red"/><text x="50" y="55" text-anchor="middle">Hi</text>'
+
+    `transform` — any SVG transform string, e.g. 'translate(100,50) rotate(45)'
+
+    Groups are useful for:
+    - Applying a shared transform to multiple shapes at once
+    - Applying shared opacity to a set of overlapping elements
+    - Organising related shapes so they can be updated or removed together
+    """
+    attrs = []
+    if transform:
+        attrs.append(f'transform="{transform}"')
+    if opacity != 1.0:
+        attrs.append(f'opacity="{opacity}"')
+    attr_str = " ".join(attrs)
+    svg = f'<g {attr_str}>{children}</g>' if attr_str else f'<g>{children}</g>'
+    eid = canvas.add_element(svg, element_id)
+    return _canvas_png_response(f"Group added (id={eid}).")
+
+
+@mcp.tool()
+def undo() -> list[types.ContentBlock]:
+    """Undo the last canvas change (up to 50 steps)."""
+    if canvas.undo():
+        return _canvas_png_response("Undo successful.")
+    return _canvas_png_response("Nothing to undo.")
+
+
+@mcp.tool()
+def redo() -> list[types.ContentBlock]:
+    """Redo the last undone canvas change."""
+    if canvas.redo():
+        return _canvas_png_response("Redo successful.")
+    return _canvas_png_response("Nothing to redo.")
+
+
+@mcp.tool()
+def bring_forward(element_id: str) -> list[types.ContentBlock]:
+    """Move an element one step forward (higher in the z-order, rendered later = on top)."""
+    if canvas.move_element(element_id, +1):
+        return _canvas_png_response(f"'{element_id}' moved forward.")
+    return _canvas_png_response(f"'{element_id}' not found or already at the top.")
+
+
+@mcp.tool()
+def send_backward(element_id: str) -> list[types.ContentBlock]:
+    """Move an element one step backward (lower in the z-order, rendered earlier = behind)."""
+    if canvas.move_element(element_id, -1):
+        return _canvas_png_response(f"'{element_id}' moved backward.")
+    return _canvas_png_response(f"'{element_id}' not found or already at the bottom.")
+
+
+@mcp.tool()
+def bring_to_front(element_id: str) -> list[types.ContentBlock]:
+    """Move an element to the very top of the z-order (rendered last = in front of everything)."""
+    n = len(canvas.elements)
+    if canvas.move_element(element_id, n):
+        return _canvas_png_response(f"'{element_id}' brought to front.")
+    return _canvas_png_response(f"'{element_id}' not found or already at the front.")
+
+
+@mcp.tool()
+def send_to_back(element_id: str) -> list[types.ContentBlock]:
+    """Move an element to the very bottom of the z-order (rendered first = behind everything)."""
+    n = len(canvas.elements)
+    if canvas.move_element(element_id, -n):
+        return _canvas_png_response(f"'{element_id}' sent to back.")
+    return _canvas_png_response(f"'{element_id}' not found or already at the back.")
+
+
+@mcp.tool()
 def list_elements() -> list[types.ContentBlock]:
-    """List all element IDs currently on the canvas."""
+    """List all element IDs currently on the canvas (in z-order, bottom to top)."""
     if not canvas.elements:
         return _canvas_png_response("Canvas is empty — no elements.")
-    lines = [f"- {e['id']}" for e in canvas.elements]
-    return _canvas_png_response("Elements on canvas:\n" + "\n".join(lines))
+    lines = [f"{i + 1}. {e['id']}" for i, e in enumerate(canvas.elements)]
+    return _canvas_png_response("Elements on canvas (bottom → top):\n" + "\n".join(lines))
 
 
 @mcp.tool()

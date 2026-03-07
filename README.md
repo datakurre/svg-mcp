@@ -114,28 +114,50 @@ Replace `/path/to/svg-mcp/main.py` with the absolute path on your machine.
 | Tool | Description |
 |---|---|
 | `create_canvas(width, height, background)` | Create or reset the canvas. Default: 800×600, white background. |
+| `resize_canvas(width, height, background)` | Resize the canvas without clearing elements. Background is optional. |
 | `clear_canvas()` | Remove all elements (and defs), keeping size and background. |
 | `get_canvas()` | Return a PNG preview of the current canvas with no changes. |
 | `get_svg_source()` | Return the raw SVG source of the current canvas. |
-| `list_elements()` | List all element IDs on the canvas. |
+| `list_elements()` | List all element IDs in z-order (bottom → top). |
+| `get_element(element_id)` | Return the raw SVG fragment of a single element. |
 | `remove_element(element_id)` | Remove a single element by its ID. |
+| `update_element(element_id, svg_fragment)` | Replace an element's SVG in-place, preserving its z-position. |
+
+### Z-order
+
+| Tool | Description |
+|---|---|
+| `bring_forward(element_id)` | Move one step toward the top (rendered later = in front). |
+| `send_backward(element_id)` | Move one step toward the bottom (rendered earlier = behind). |
+| `bring_to_front(element_id)` | Move to the very top of the stack. |
+| `send_to_back(element_id)` | Move to the very bottom of the stack. |
+
+### Undo / Redo
+
+| Tool | Description |
+|---|---|
+| `undo()` | Undo the last canvas change (up to 50 steps). |
+| `redo()` | Re-apply the last undone change. |
 
 ### Drawing
 
 | Tool | Key parameters |
 |---|---|
-| `draw_rect` | `x, y, width, height, rx, ry, fill, stroke, stroke_width, opacity, rotation` |
-| `draw_circle` | `cx, cy, r, fill, stroke, stroke_width, opacity` |
-| `draw_ellipse` | `cx, cy, rx, ry, fill, stroke, stroke_width, opacity, rotation` |
-| `draw_line` | `x1, y1, x2, y2, stroke, stroke_width, opacity, stroke_linecap` |
-| `draw_polyline` | `points` (e.g. `"0,0 50,50 100,0"`), fill, stroke, … |
-| `draw_polygon` | `points` (closed shape), fill, stroke, … |
-| `draw_path` | `d` (SVG path data), fill, stroke, … |
+| `draw_rect` | `x, y, width, height, rx, ry, fill, stroke, stroke_width, stroke_dasharray, opacity, rotation` |
+| `draw_circle` | `cx, cy, r, fill, stroke, stroke_width, stroke_dasharray, opacity` |
+| `draw_ellipse` | `cx, cy, rx, ry, fill, stroke, stroke_width, stroke_dasharray, opacity, rotation` |
+| `draw_line` | `x1, y1, x2, y2, stroke, stroke_width, stroke_dasharray, opacity, stroke_linecap` |
+| `draw_polyline` | `points` (e.g. `"0,0 50,50 100,0"`), fill, stroke, stroke_dasharray, … |
+| `draw_polygon` | `points` (closed shape), fill, stroke, stroke_dasharray, … |
+| `draw_path` | `d` (SVG path data), fill, stroke, stroke_dasharray, … |
 | `draw_text` | `x, y, text, font_size, font_family, fill, text_anchor, font_weight, rotation` |
 | `draw_image` | `x, y, width, height, href` (URL or data-URI) |
-| `draw_raw_svg` | `svg_fragment` — any valid SVG string, e.g. `<g>`, `<use>`, filters |
+| `draw_group` | `children` (raw SVG string), `transform` (e.g. `"translate(100,50) rotate(45)"`), `opacity` |
+| `draw_raw_svg` | `svg_fragment` — any valid SVG string, e.g. `<use>`, `<symbol>`, filters |
 
 All drawing tools accept an optional `element_id` parameter. If omitted, a unique ID is generated automatically.
+
+`stroke_dasharray` accepts any SVG dash pattern, e.g. `"5,3"` (5px dash, 3px gap) or `"10,5,2,5"` (long-short alternating).
 
 ### Definitions
 
