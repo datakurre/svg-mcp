@@ -1,0 +1,3 @@
+# svg-mcp
+
+stdio

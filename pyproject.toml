@@ -1,0 +1,13 @@
+[project]
+name = "svg-mcp"
+version = "0.1.0"
+description = "MCP server for drawing SVGs on a persistent canvas and exporting as SVG or PNG"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "cairosvg>=2.8.2",
+    "mcp[cli]>=1.26.0",
+]
+
+[project.scripts]
+svg-mcp = "main:mcp.run"
