@@ -41,6 +41,41 @@ python main.py
 
 ## MCP client configuration
 
+### With Nix (recommended)
+
+If you have [Nix](https://nixos.org/) installed, no local checkout is required. Use `nix run` as the command — Nix will fetch, build, and cache everything automatically.
+
+#### Claude Desktop (`claude_desktop_config.json`)
+
+```json
+{
+  "mcpServers": {
+    "svg-mcp": {
+      "command": "nix",
+      "args": ["run", "github:datakurre/svg-mcp"]
+    }
+  }
+}
+```
+
+#### VS Code (`settings.json`)
+
+```json
+{
+  "mcp": {
+    "servers": {
+      "svg-mcp": {
+        "type": "stdio",
+        "command": "nix",
+        "args": ["run", "github:datakurre/svg-mcp"]
+      }
+    }
+  }
+}
+```
+
+### Without Nix (local Python)
+
 ### Claude Desktop (`claude_desktop_config.json`)
 
 ```json
