@@ -13,8 +13,32 @@ _DEFAULT_WIDTH = 800
 _DEFAULT_HEIGHT = 600
 _DEFAULT_BG = "white"
 
-# Maximum number of undo snapshots kept in memory
+# Hard limits: beyond these cairosvg will exhaust memory or take forever.
+# 16 384 px per side → 256 MP → ~768 MB raw RGBA at 1×.
+_MAX_DIMENSION = 16_384
+_MIN_DIMENSION = 1
+# Maximum PNG export scale factor (caps raster resolution).
+_MAX_SCALE = 8.0
+
+# Maximum number of undo snapshots kept in memory.
 _MAX_HISTORY = 50
+
+
+def _clamp_dimension(value: int, name: str) -> tuple[int, str]:
+    """Clamp *value* to [_MIN_DIMENSION, _MAX_DIMENSION].
+
+    Returns ``(clamped_value, warning_message)``; the warning is an empty
+    string when no clamping was needed.
+    """
+    if value < _MIN_DIMENSION:
+        return _MIN_DIMENSION, (
+            f"{name} {value} is too small; clamped to {_MIN_DIMENSION}."
+        )
+    if value > _MAX_DIMENSION:
+        return _MAX_DIMENSION, (
+            f"{name} {value} is unreasonably large; clamped to {_MAX_DIMENSION}."
+        )
+    return value, ""
 
 
 class Canvas:
@@ -26,9 +50,12 @@ class Canvas:
         height: int = _DEFAULT_HEIGHT,
         background: str = _DEFAULT_BG,
     ):
+        width, w_warn = _clamp_dimension(width, "width")
+        height, h_warn = _clamp_dimension(height, "height")
         self.width = width
         self.height = height
         self.background = background
+        self.warnings: list[str] = [w for w in (w_warn, h_warn) if w]
         self.elements: list[dict[str, Any]] = []  # [{id, svg}]
         self.defs: list[str] = []  # raw <defs> children
         self._history: list[dict[str, Any]] = []  # undo stack
@@ -131,13 +158,21 @@ class Canvas:
     # Canvas-level mutations
     # ------------------------------------------------------------------
 
-    def resize(self, width: int, height: int, background: str | None = None) -> None:
-        """Change dimensions (and optionally background) without clearing elements."""
+    def resize(
+        self, width: int, height: int, background: str | None = None
+    ) -> list[str]:
+        """Change dimensions (and optionally background) without clearing elements.
+
+        Returns a list of warning strings produced by clamping (empty when none).
+        """
+        width, w_warn = _clamp_dimension(width, "width")
+        height, h_warn = _clamp_dimension(height, "height")
         self._push_history()
         self.width = width
         self.height = height
         if background is not None:
             self.background = background
+        return [w for w in (w_warn, h_warn) if w]
 
     def add_def(self, def_fragment: str) -> None:
         self._push_history()

@@ -12,6 +12,7 @@ from svg_mcp.canvas import (
     _DEFAULT_BG,
     _DEFAULT_HEIGHT,
     _DEFAULT_WIDTH,
+    _MAX_SCALE,
     Canvas,
     get_canvas,
     set_canvas,
@@ -26,10 +27,12 @@ def create_canvas(
     background: str = _DEFAULT_BG,
 ) -> list[ContentBlock]:
     """Create or reset the canvas with the given dimensions and background colour."""
-    set_canvas(Canvas(width=width, height=height, background=background))
-    return canvas_png_response(
-        f"Canvas created ({width}×{height}, background={background})."
-    )
+    c = Canvas(width=width, height=height, background=background)
+    set_canvas(c)
+    msg = f"Canvas created ({c.width}\u00d7{c.height}, background={background})."
+    if c.warnings:
+        msg += "\nWarning: " + " ".join(c.warnings)
+    return canvas_png_response(msg)
 
 
 @mcp.tool
@@ -39,12 +42,16 @@ def resize_canvas(
     background: str = "",
 ) -> list[ContentBlock]:
     """Resize the canvas without clearing its elements. Optionally change the background colour."""
-    get_canvas().resize(width, height, background or None)
-    return canvas_png_response(
-        f"Canvas resized to {width}×{height}"
+    warnings = get_canvas().resize(width, height, background or None)
+    c = get_canvas()
+    msg = (
+        f"Canvas resized to {c.width}\u00d7{c.height}"
         + (f", background={background}" if background else "")
         + "."
     )
+    if warnings:
+        msg += "\nWarning: " + " ".join(warnings)
+    return canvas_png_response(msg)
 
 
 @mcp.tool
@@ -106,11 +113,18 @@ def export(
     """
     path = os.path.abspath(file_path)
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    scale_warn = ""
+    if scale > _MAX_SCALE:
+        scale_warn = f" (scale clamped from {scale} to {_MAX_SCALE})"
+        scale = _MAX_SCALE
+    elif scale <= 0:
+        scale_warn = f" (scale {scale} invalid; using 1.0)"
+        scale = 1.0
     if format == "svg":
         with open(path, "w", encoding="utf-8") as f:
             f.write(get_canvas().to_svg())
-        return canvas_png_response(f"SVG exported to `{path}`.")
+        return canvas_png_response(f"SVG exported to `{path}`{scale_warn}.")
     # format == "png"
     with open(path, "wb") as f:
         f.write(get_canvas().to_png_bytes(scale=scale))
-    return canvas_png_response(f"PNG exported to `{path}` (scale={scale}).")
+    return canvas_png_response(f"PNG exported to `{path}` (scale={scale}){scale_warn}.")

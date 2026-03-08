@@ -2,7 +2,14 @@
 
 from mcp.types import ImageContent, TextContent
 
-from svg_mcp.canvas import Canvas, get_canvas, set_canvas
+from svg_mcp.canvas import (
+    _MAX_DIMENSION,
+    _MAX_SCALE,
+    _MIN_DIMENSION,
+    Canvas,
+    get_canvas,
+    set_canvas,
+)
 from svg_mcp.tools.canvas_mgmt import (
     clear_canvas,
     create_canvas,
@@ -163,3 +170,79 @@ class TestExport:
         import os
 
         assert os.path.getsize(path2) > os.path.getsize(path1)
+
+
+class TestCanvasSizeClamping:
+    """Verify that unreasonable canvas dimensions are clamped, not crash-inducing."""
+
+    def test_create_canvas_clamps_huge_width(self):
+        result = create_canvas(width=400_000_000, height=600)
+        c = get_canvas()
+        assert c.width == _MAX_DIMENSION
+        assert c.height == 600
+        text = next(b for b in result if isinstance(b, TextContent))
+        assert "clamped" in text.text.lower() or str(_MAX_DIMENSION) in text.text
+
+    def test_create_canvas_clamps_huge_height(self):
+        create_canvas(width=800, height=400_000_000)
+        assert get_canvas().height == _MAX_DIMENSION
+
+    def test_create_canvas_clamps_both_dimensions(self):
+        create_canvas(width=999_999_999, height=999_999_999)
+        c = get_canvas()
+        assert c.width == _MAX_DIMENSION
+        assert c.height == _MAX_DIMENSION
+
+    def test_create_canvas_clamps_zero_width(self):
+        create_canvas(width=0, height=100)
+        assert get_canvas().width == _MIN_DIMENSION
+
+    def test_create_canvas_clamps_negative_dimension(self):
+        create_canvas(width=-50, height=100)
+        assert get_canvas().width == _MIN_DIMENSION
+
+    def test_create_canvas_normal_sizes_unchanged(self):
+        create_canvas(width=1920, height=1080)
+        c = get_canvas()
+        assert c.width == 1920
+        assert c.height == 1080
+
+    def test_resize_canvas_clamps_huge_dimension(self):
+        result = resize_canvas(width=400_000_000, height=600)
+        c = get_canvas()
+        assert c.width == _MAX_DIMENSION
+        text = next(b for b in result if isinstance(b, TextContent))
+        assert "clamped" in text.text.lower() or str(_MAX_DIMENSION) in text.text
+
+    def test_resize_canvas_clamps_zero(self):
+        resize_canvas(width=0, height=0)
+        c = get_canvas()
+        assert c.width == _MIN_DIMENSION
+        assert c.height == _MIN_DIMENSION
+
+    def test_export_scale_clamped(self, tmp_path):
+        path = str(tmp_path / "out.png")
+        result = export(file_path=path, format="png", scale=1000.0)
+        text = next(b for b in result if isinstance(b, TextContent))
+        assert "clamped" in text.text.lower()
+
+    def test_export_zero_scale_corrected(self, tmp_path):
+        path = str(tmp_path / "out.png")
+        result = export(file_path=path, format="png", scale=0.0)
+        text = next(b for b in result if isinstance(b, TextContent))
+        assert "invalid" in text.text.lower() or "1.0" in text.text
+
+    def test_export_valid_scale_unchanged(self, tmp_path):
+        path = str(tmp_path / "out.png")
+        result = export(file_path=path, format="png", scale=2.0)
+        text = next(b for b in result if isinstance(b, TextContent))
+        assert "clamped" not in text.text.lower()
+
+    def test_canvas_warnings_attribute_set(self):
+        c = Canvas(width=400_000_000, height=600)
+        assert len(c.warnings) == 1
+        assert "width" in c.warnings[0]
+
+    def test_canvas_no_warnings_for_normal_size(self):
+        c = Canvas(width=800, height=600)
+        assert c.warnings == []
