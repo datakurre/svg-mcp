@@ -30,10 +30,10 @@ def create_canvas(
 def resize_canvas(
     width: int,
     height: int,
-    background: str | None = None,
+    background: str = "",
 ) -> list[types.ContentBlock]:
     """Resize the canvas without clearing its elements. Optionally change the background colour."""
-    get_canvas().resize(width, height, background)
+    get_canvas().resize(width, height, background or None)
     return canvas_png_response(
         f"Canvas resized to {width}×{height}"
         + (f", background={background}" if background else "") + "."
@@ -43,7 +43,7 @@ def resize_canvas(
 @mcp.tool()
 def inspect(
     what: Literal["canvas", "svg", "elements", "element"],
-    element_id: str | None = None,
+    element_id: str = "",
 ) -> list[types.ContentBlock]:
     """Inspect the current canvas state.
 

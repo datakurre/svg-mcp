@@ -24,3 +24,15 @@ dev = [
     "pytest>=9.0.2",
     "pytest-cov>=7.0.0",
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.coverage.run]
+source = ["svg_mcp"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+omit = ["tests/*"]
