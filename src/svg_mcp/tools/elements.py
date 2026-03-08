@@ -9,7 +9,7 @@ from svg_mcp.canvas import get_canvas as _get_canvas
 from svg_mcp.server import mcp
 
 
-@mcp.tool()
+@mcp.tool(structured_output=False)
 def update_element(
     element_id: str,
     svg_fragment: str,
@@ -24,7 +24,7 @@ def update_element(
     return canvas_png_response(f"Element '{element_id}' not found — no changes made.")
 
 
-@mcp.tool()
+@mcp.tool(structured_output=False)
 def remove_element(element_id: str) -> list[types.ContentBlock]:
     """Remove an element from the canvas by its ID."""
     if _get_canvas().remove_element(element_id):
@@ -32,7 +32,7 @@ def remove_element(element_id: str) -> list[types.ContentBlock]:
     return canvas_png_response(f"Element '{element_id}' not found.")
 
 
-@mcp.tool()
+@mcp.tool(structured_output=False)
 def add_def(def_fragment: str) -> list[types.ContentBlock]:
     """Add a definition (gradient, pattern, clip-path, filter, etc.) to the <defs> section.
 

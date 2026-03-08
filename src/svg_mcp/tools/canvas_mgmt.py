@@ -13,7 +13,7 @@ from svg_mcp.canvas import Canvas, _DEFAULT_BG, _DEFAULT_HEIGHT, _DEFAULT_WIDTH,
 from svg_mcp.server import mcp
 
 
-@mcp.tool()
+@mcp.tool(structured_output=False)
 def create_canvas(
     width: int = _DEFAULT_WIDTH,
     height: int = _DEFAULT_HEIGHT,
@@ -26,7 +26,7 @@ def create_canvas(
     )
 
 
-@mcp.tool()
+@mcp.tool(structured_output=False)
 def resize_canvas(
     width: int,
     height: int,
@@ -40,7 +40,7 @@ def resize_canvas(
     )
 
 
-@mcp.tool()
+@mcp.tool(structured_output=False)
 def inspect(
     what: Literal["canvas", "svg", "elements", "element"],
     element_id: str = "",
@@ -75,14 +75,14 @@ def inspect(
     return canvas_png_response(f"Element '{element_id}':\n```xml\n{svg}\n```")
 
 
-@mcp.tool()
+@mcp.tool(structured_output=False)
 def clear_canvas() -> list[types.ContentBlock]:
     """Remove all elements (and defs) from the canvas, keeping its size and background."""
     get_canvas().clear()
     return canvas_png_response("Canvas cleared.")
 
 
-@mcp.tool()
+@mcp.tool(structured_output=False)
 def export(
     file_path: str,
     format: Literal["svg", "png"] = "svg",

@@ -232,7 +232,7 @@ def _draw_raw_svg(
 # MCP tool wrappers
 # ---------------------------------------------------------------------------
 
-@mcp.tool()
+@mcp.tool(structured_output=False)
 def draw_rect(
     x: float,
     y: float,
@@ -258,7 +258,7 @@ def draw_rect(
     return canvas_png_response(f"Rectangle added (id={eid}).")
 
 
-@mcp.tool()
+@mcp.tool(structured_output=False)
 def draw_circle(
     cx: float,
     cy: float,
@@ -280,7 +280,7 @@ def draw_circle(
     return canvas_png_response(f"Circle added (id={eid}).")
 
 
-@mcp.tool()
+@mcp.tool(structured_output=False)
 def draw_ellipse(
     cx: float,
     cy: float,
@@ -304,7 +304,7 @@ def draw_ellipse(
     return canvas_png_response(f"Ellipse added (id={eid}).")
 
 
-@mcp.tool()
+@mcp.tool(structured_output=False)
 def draw_line(
     x1: float,
     y1: float,
@@ -327,7 +327,7 @@ def draw_line(
     return canvas_png_response(f"Line added (id={eid}).")
 
 
-@mcp.tool()
+@mcp.tool(structured_output=False)
 def draw_polyline(
     points: str,
     fill: str = "none",
@@ -347,7 +347,7 @@ def draw_polyline(
     return canvas_png_response(f"Polyline added (id={eid}).")
 
 
-@mcp.tool()
+@mcp.tool(structured_output=False)
 def draw_polygon(
     points: str,
     fill: str = "none",
@@ -367,7 +367,7 @@ def draw_polygon(
     return canvas_png_response(f"Polygon added (id={eid}).")
 
 
-@mcp.tool()
+@mcp.tool(structured_output=False)
 def draw_path(
     d: str,
     fill: str = "none",
@@ -387,7 +387,7 @@ def draw_path(
     return canvas_png_response(f"Path added (id={eid}).")
 
 
-@mcp.tool()
+@mcp.tool(structured_output=False)
 def draw_text(
     x: float,
     y: float,
@@ -411,7 +411,7 @@ def draw_text(
     return canvas_png_response(f"Text added (id={eid}).")
 
 
-@mcp.tool()
+@mcp.tool(structured_output=False)
 def draw_image(
     x: float,
     y: float,
@@ -429,7 +429,7 @@ def draw_image(
     return canvas_png_response(f"Image added (id={eid}).")
 
 
-@mcp.tool()
+@mcp.tool(structured_output=False)
 def draw_group(
     children: str,
     transform: str = "",
@@ -455,7 +455,7 @@ def draw_group(
     return canvas_png_response(f"Group added (id={eid}).")
 
 
-@mcp.tool()
+@mcp.tool(structured_output=False)
 def draw_raw_svg(
     svg_fragment: str,
     element_id: str = "",

@@ -11,7 +11,7 @@ from svg_mcp.canvas import get_canvas as _get_canvas
 from svg_mcp.server import mcp
 
 
-@mcp.tool()
+@mcp.tool(structured_output=False)
 def reorder_element(
     element_id: str,
     direction: Literal["forward", "backward", "front", "back"],

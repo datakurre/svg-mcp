@@ -146,7 +146,7 @@ def _dispatch(tool: str, args: dict[str, Any]) -> str:  # noqa: C901 (complexity
 # MCP tool
 # ---------------------------------------------------------------------------
 
-@mcp.tool()
+@mcp.tool(structured_output=False)
 def batch(
     calls: list[dict[str, Any]],
 ) -> list[types.ContentBlock]:

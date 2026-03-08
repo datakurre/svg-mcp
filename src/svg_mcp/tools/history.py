@@ -11,7 +11,7 @@ from svg_mcp.canvas import get_canvas as _get_canvas
 from svg_mcp.server import mcp
 
 
-@mcp.tool()
+@mcp.tool(structured_output=False)
 def history(action: Literal["undo", "redo"]) -> list[types.ContentBlock]:
     """Undo or redo canvas changes.
 
