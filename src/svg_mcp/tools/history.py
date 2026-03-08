@@ -4,15 +4,15 @@ from __future__ import annotations
 
 from typing import Literal
 
-from mcp import types
+from fastmcp.utilities.types import ContentBlock
 
 from svg_mcp._helpers import canvas_png_response
 from svg_mcp.canvas import get_canvas as _get_canvas
 from svg_mcp.server import mcp
 
 
-@mcp.tool(structured_output=False)
-def history(action: Literal["undo", "redo"]) -> list[types.ContentBlock]:
+@mcp.tool
+def history(action: Literal["undo", "redo"]) -> list[ContentBlock]:
     """Undo or redo canvas changes.
 
     ``action`` must be one of:

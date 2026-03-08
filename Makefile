@@ -2,6 +2,11 @@
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
+.PHONY: format
+format: ## Format source code with isort and black
+	isort src/ tests/
+	black src/ tests/
+
 .PHONY: test
 test: ## Run tests with coverage
 	PYTHONPATH=src pytest --cov=svg_mcp --cov-report=term-missing -v

@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from fastmcp.prompts import Message
-from mcp.server.fastmcp import FastMCP
+from fastmcp import FastMCP
 
 INSTRUCTIONS = """\
 You are an SVG drawing assistant. You have a persistent canvas that you can draw on.
@@ -67,11 +66,13 @@ Now, wait for my instructions on what to draw, and which tools to use. Always re
 mcp = FastMCP(
     name="svg-mcp",
     instructions=INSTRUCTIONS,
-    log_level="INFO",
 )
 
 
-@mcp.prompt(name="Create SVG", description="Initialise an LLM session for SVG drawing with svg-mcp.")
+@mcp.prompt(
+    name="Create SVG",
+    description="Initialise an LLM session for SVG drawing with svg-mcp.",
+)
 def create_svg_prompt() -> str:
     """Sets up the LLM with the svg-mcp workflow and tool overview."""
     return INSTRUCTIONS

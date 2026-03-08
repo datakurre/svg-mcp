@@ -5,20 +5,26 @@ from __future__ import annotations
 import os
 from typing import Literal
 
-from mcp import types
+from fastmcp.utilities.types import ContentBlock
 
-import svg_mcp.canvas as _state
 from svg_mcp._helpers import canvas_png_response
-from svg_mcp.canvas import Canvas, _DEFAULT_BG, _DEFAULT_HEIGHT, _DEFAULT_WIDTH, get_canvas, set_canvas
+from svg_mcp.canvas import (
+    _DEFAULT_BG,
+    _DEFAULT_HEIGHT,
+    _DEFAULT_WIDTH,
+    Canvas,
+    get_canvas,
+    set_canvas,
+)
 from svg_mcp.server import mcp
 
 
-@mcp.tool(structured_output=False)
+@mcp.tool
 def create_canvas(
     width: int = _DEFAULT_WIDTH,
     height: int = _DEFAULT_HEIGHT,
     background: str = _DEFAULT_BG,
-) -> list[types.ContentBlock]:
+) -> list[ContentBlock]:
     """Create or reset the canvas with the given dimensions and background colour."""
     set_canvas(Canvas(width=width, height=height, background=background))
     return canvas_png_response(
@@ -26,25 +32,26 @@ def create_canvas(
     )
 
 
-@mcp.tool(structured_output=False)
+@mcp.tool
 def resize_canvas(
     width: int,
     height: int,
     background: str = "",
-) -> list[types.ContentBlock]:
+) -> list[ContentBlock]:
     """Resize the canvas without clearing its elements. Optionally change the background colour."""
     get_canvas().resize(width, height, background or None)
     return canvas_png_response(
         f"Canvas resized to {width}×{height}"
-        + (f", background={background}" if background else "") + "."
+        + (f", background={background}" if background else "")
+        + "."
     )
 
 
-@mcp.tool(structured_output=False)
+@mcp.tool
 def inspect(
     what: Literal["canvas", "svg", "elements", "element"],
     element_id: str = "",
-) -> list[types.ContentBlock]:
+) -> list[ContentBlock]:
     """Inspect the current canvas state.
 
     ``what`` must be one of:
@@ -65,7 +72,9 @@ def inspect(
         if not c.elements:
             return canvas_png_response("Canvas is empty — no elements.")
         lines = [f"{i + 1}. {e['id']}" for i, e in enumerate(c.elements)]
-        return canvas_png_response("Elements on canvas (bottom → top):\n" + "\n".join(lines))
+        return canvas_png_response(
+            "Elements on canvas (bottom → top):\n" + "\n".join(lines)
+        )
     # what == "element"
     if not element_id:
         return canvas_png_response("Provide `element_id` when using what='element'.")
@@ -75,19 +84,19 @@ def inspect(
     return canvas_png_response(f"Element '{element_id}':\n```xml\n{svg}\n```")
 
 
-@mcp.tool(structured_output=False)
-def clear_canvas() -> list[types.ContentBlock]:
+@mcp.tool
+def clear_canvas() -> list[ContentBlock]:
     """Remove all elements (and defs) from the canvas, keeping its size and background."""
     get_canvas().clear()
     return canvas_png_response("Canvas cleared.")
 
 
-@mcp.tool(structured_output=False)
+@mcp.tool
 def export(
     file_path: str,
     format: Literal["svg", "png"] = "svg",
     scale: float = 1.0,
-) -> list[types.ContentBlock]:
+) -> list[ContentBlock]:
     """Export the current canvas to a file.
 
     ``format``

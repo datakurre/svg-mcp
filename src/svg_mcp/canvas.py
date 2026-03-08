@@ -30,9 +30,9 @@ class Canvas:
         self.height = height
         self.background = background
         self.elements: list[dict[str, Any]] = []  # [{id, svg}]
-        self.defs: list[str] = []                 # raw <defs> children
+        self.defs: list[str] = []  # raw <defs> children
         self._history: list[dict[str, Any]] = []  # undo stack
-        self._future: list[dict[str, Any]] = []   # redo stack
+        self._future: list[dict[str, Any]] = []  # redo stack
 
     # ------------------------------------------------------------------
     # History helpers

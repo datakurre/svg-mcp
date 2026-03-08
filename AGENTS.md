@@ -94,13 +94,13 @@ Every mutating method calls `_push_history()` first, enabling undo/redo up to 50
 Minimal template:
 
 ```python
-from mcp import types
+from fastmcp.utilities.types import ContentBlock
 from svg_mcp._helpers import canvas_png_response
 from svg_mcp.canvas import get_canvas as _get_canvas
 from svg_mcp.server import mcp
 
-@mcp.tool()
-def my_tool(param: str) -> list[types.ContentBlock]:
+@mcp.tool
+def my_tool(param: str) -> list[ContentBlock]:
     """One-line description shown to the agent."""
     result = _get_canvas().some_method(param)
     return canvas_png_response(f"Done: {result}.")
@@ -204,8 +204,8 @@ PYTHONPATH=src python main.py
 
 # Quick sanity check — counts registered tools
 PYTHONPATH=src python -c "
-import svg_mcp
-tools = svg_mcp.mcp._tool_manager.list_tools()
+import asyncio, svg_mcp
+tools = asyncio.run(svg_mcp.mcp.list_tools())
 print(len(tools), 'tools:', [t.name for t in tools])
 "
 

@@ -4,16 +4,16 @@ from __future__ import annotations
 
 import html as _html
 
-from mcp import types
+from fastmcp.utilities.types import ContentBlock
 
 from svg_mcp._helpers import canvas_png_response, style_attrs
 from svg_mcp.canvas import get_canvas as _get_canvas
 from svg_mcp.server import mcp
 
-
 # ---------------------------------------------------------------------------
 # Pure core functions (no MCP dependency – usable from batch and tools alike)
 # ---------------------------------------------------------------------------
+
 
 def _draw_rect(
     x: float,
@@ -31,12 +31,16 @@ def _draw_rect(
     element_id: str | None = None,
 ) -> str:
     style = style_attrs(
-        fill=fill, stroke=stroke, stroke_width=stroke_width,
-        opacity=opacity, stroke_dasharray=stroke_dasharray,
+        fill=fill,
+        stroke=stroke,
+        stroke_width=stroke_width,
+        opacity=opacity,
+        stroke_dasharray=stroke_dasharray,
     )
     transform = (
         f' transform="rotate({rotation} {x + width / 2} {y + height / 2})"'
-        if rotation else ""
+        if rotation
+        else ""
     )
     svg = (
         f'<rect x="{x}" y="{y}" width="{width}" height="{height}" '
@@ -57,8 +61,11 @@ def _draw_circle(
     element_id: str | None = None,
 ) -> str:
     style = style_attrs(
-        fill=fill, stroke=stroke, stroke_width=stroke_width,
-        opacity=opacity, stroke_dasharray=stroke_dasharray,
+        fill=fill,
+        stroke=stroke,
+        stroke_width=stroke_width,
+        opacity=opacity,
+        stroke_dasharray=stroke_dasharray,
     )
     svg = f'<circle cx="{cx}" cy="{cy}" r="{r}" {style} />'
     return _get_canvas().add_element(svg, element_id)
@@ -78,8 +85,11 @@ def _draw_ellipse(
     element_id: str | None = None,
 ) -> str:
     style = style_attrs(
-        fill=fill, stroke=stroke, stroke_width=stroke_width,
-        opacity=opacity, stroke_dasharray=stroke_dasharray,
+        fill=fill,
+        stroke=stroke,
+        stroke_width=stroke_width,
+        opacity=opacity,
+        stroke_dasharray=stroke_dasharray,
     )
     transform = f' transform="rotate({rotation} {cx} {cy})"' if rotation else ""
     svg = f'<ellipse cx="{cx}" cy="{cy}" rx="{rx}" ry="{ry}" {style}{transform} />'
@@ -99,8 +109,10 @@ def _draw_line(
     element_id: str | None = None,
 ) -> str:
     style = style_attrs(
-        stroke=stroke, stroke_width=stroke_width,
-        opacity=opacity, stroke_dasharray=stroke_dasharray,
+        stroke=stroke,
+        stroke_width=stroke_width,
+        opacity=opacity,
+        stroke_dasharray=stroke_dasharray,
     )
     svg = (
         f'<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" '
@@ -119,8 +131,11 @@ def _draw_polyline(
     element_id: str | None = None,
 ) -> str:
     style = style_attrs(
-        fill=fill, stroke=stroke, stroke_width=stroke_width,
-        opacity=opacity, stroke_dasharray=stroke_dasharray,
+        fill=fill,
+        stroke=stroke,
+        stroke_width=stroke_width,
+        opacity=opacity,
+        stroke_dasharray=stroke_dasharray,
     )
     svg = f'<polyline points="{points}" {style} />'
     return _get_canvas().add_element(svg, element_id)
@@ -136,8 +151,11 @@ def _draw_polygon(
     element_id: str | None = None,
 ) -> str:
     style = style_attrs(
-        fill=fill, stroke=stroke, stroke_width=stroke_width,
-        opacity=opacity, stroke_dasharray=stroke_dasharray,
+        fill=fill,
+        stroke=stroke,
+        stroke_width=stroke_width,
+        opacity=opacity,
+        stroke_dasharray=stroke_dasharray,
     )
     svg = f'<polygon points="{points}" {style} />'
     return _get_canvas().add_element(svg, element_id)
@@ -153,8 +171,11 @@ def _draw_path(
     element_id: str | None = None,
 ) -> str:
     style = style_attrs(
-        fill=fill, stroke=stroke, stroke_width=stroke_width,
-        opacity=opacity, stroke_dasharray=stroke_dasharray,
+        fill=fill,
+        stroke=stroke,
+        stroke_width=stroke_width,
+        opacity=opacity,
+        stroke_dasharray=stroke_dasharray,
     )
     svg = f'<path d="{d}" {style} />'
     return _get_canvas().add_element(svg, element_id)
@@ -217,7 +238,7 @@ def _draw_group(
     if opacity != 1.0:
         attrs.append(f'opacity="{opacity}"')
     attr_str = " ".join(attrs)
-    svg = f'<g {attr_str}>{children}</g>' if attr_str else f'<g>{children}</g>'
+    svg = f"<g {attr_str}>{children}</g>" if attr_str else f"<g>{children}</g>"
     return _get_canvas().add_element(svg, element_id)
 
 
@@ -232,7 +253,8 @@ def _draw_raw_svg(
 # MCP tool wrappers
 # ---------------------------------------------------------------------------
 
-@mcp.tool(structured_output=False)
+
+@mcp.tool
 def draw_rect(
     x: float,
     y: float,
@@ -247,18 +269,27 @@ def draw_rect(
     opacity: float = 1.0,
     rotation: float = 0,
     element_id: str = "",
-) -> list[types.ContentBlock]:
+) -> list[ContentBlock]:
     """Draw a rectangle on the canvas."""
     eid = _draw_rect(
-        x=x, y=y, width=width, height=height, rx=rx, ry=ry,
-        fill=fill, stroke=stroke, stroke_width=stroke_width,
-        stroke_dasharray=stroke_dasharray or None, opacity=opacity,
-        rotation=rotation, element_id=element_id or None,
+        x=x,
+        y=y,
+        width=width,
+        height=height,
+        rx=rx,
+        ry=ry,
+        fill=fill,
+        stroke=stroke,
+        stroke_width=stroke_width,
+        stroke_dasharray=stroke_dasharray or None,
+        opacity=opacity,
+        rotation=rotation,
+        element_id=element_id or None,
     )
     return canvas_png_response(f"Rectangle added (id={eid}).")
 
 
-@mcp.tool(structured_output=False)
+@mcp.tool
 def draw_circle(
     cx: float,
     cy: float,
@@ -269,18 +300,23 @@ def draw_circle(
     stroke_dasharray: str = "",
     opacity: float = 1.0,
     element_id: str = "",
-) -> list[types.ContentBlock]:
+) -> list[ContentBlock]:
     """Draw a circle on the canvas."""
     eid = _draw_circle(
-        cx=cx, cy=cy, r=r,
-        fill=fill, stroke=stroke, stroke_width=stroke_width,
-        stroke_dasharray=stroke_dasharray or None, opacity=opacity,
+        cx=cx,
+        cy=cy,
+        r=r,
+        fill=fill,
+        stroke=stroke,
+        stroke_width=stroke_width,
+        stroke_dasharray=stroke_dasharray or None,
+        opacity=opacity,
         element_id=element_id or None,
     )
     return canvas_png_response(f"Circle added (id={eid}).")
 
 
-@mcp.tool(structured_output=False)
+@mcp.tool
 def draw_ellipse(
     cx: float,
     cy: float,
@@ -293,18 +329,25 @@ def draw_ellipse(
     opacity: float = 1.0,
     rotation: float = 0,
     element_id: str = "",
-) -> list[types.ContentBlock]:
+) -> list[ContentBlock]:
     """Draw an ellipse on the canvas."""
     eid = _draw_ellipse(
-        cx=cx, cy=cy, rx=rx, ry=ry,
-        fill=fill, stroke=stroke, stroke_width=stroke_width,
-        stroke_dasharray=stroke_dasharray or None, opacity=opacity,
-        rotation=rotation, element_id=element_id or None,
+        cx=cx,
+        cy=cy,
+        rx=rx,
+        ry=ry,
+        fill=fill,
+        stroke=stroke,
+        stroke_width=stroke_width,
+        stroke_dasharray=stroke_dasharray or None,
+        opacity=opacity,
+        rotation=rotation,
+        element_id=element_id or None,
     )
     return canvas_png_response(f"Ellipse added (id={eid}).")
 
 
-@mcp.tool(structured_output=False)
+@mcp.tool
 def draw_line(
     x1: float,
     y1: float,
@@ -316,18 +359,24 @@ def draw_line(
     opacity: float = 1.0,
     stroke_linecap: str = "round",
     element_id: str = "",
-) -> list[types.ContentBlock]:
+) -> list[ContentBlock]:
     """Draw a straight line on the canvas."""
     eid = _draw_line(
-        x1=x1, y1=y1, x2=x2, y2=y2,
-        stroke=stroke, stroke_width=stroke_width,
-        stroke_dasharray=stroke_dasharray or None, opacity=opacity,
-        stroke_linecap=stroke_linecap, element_id=element_id or None,
+        x1=x1,
+        y1=y1,
+        x2=x2,
+        y2=y2,
+        stroke=stroke,
+        stroke_width=stroke_width,
+        stroke_dasharray=stroke_dasharray or None,
+        opacity=opacity,
+        stroke_linecap=stroke_linecap,
+        element_id=element_id or None,
     )
     return canvas_png_response(f"Line added (id={eid}).")
 
 
-@mcp.tool(structured_output=False)
+@mcp.tool
 def draw_polyline(
     points: str,
     fill: str = "none",
@@ -336,18 +385,21 @@ def draw_polyline(
     stroke_dasharray: str = "",
     opacity: float = 1.0,
     element_id: str = "",
-) -> list[types.ContentBlock]:
+) -> list[ContentBlock]:
     """Draw a polyline (open shape). `points` is a space-separated list like '0,0 50,50 100,0'."""
     eid = _draw_polyline(
         points=points,
-        fill=fill, stroke=stroke, stroke_width=stroke_width,
-        stroke_dasharray=stroke_dasharray or None, opacity=opacity,
+        fill=fill,
+        stroke=stroke,
+        stroke_width=stroke_width,
+        stroke_dasharray=stroke_dasharray or None,
+        opacity=opacity,
         element_id=element_id or None,
     )
     return canvas_png_response(f"Polyline added (id={eid}).")
 
 
-@mcp.tool(structured_output=False)
+@mcp.tool
 def draw_polygon(
     points: str,
     fill: str = "none",
@@ -356,18 +408,21 @@ def draw_polygon(
     stroke_dasharray: str = "",
     opacity: float = 1.0,
     element_id: str = "",
-) -> list[types.ContentBlock]:
+) -> list[ContentBlock]:
     """Draw a polygon (closed shape). `points` is a space-separated list like '100,10 40,198 190,78 10,78 160,198'."""
     eid = _draw_polygon(
         points=points,
-        fill=fill, stroke=stroke, stroke_width=stroke_width,
-        stroke_dasharray=stroke_dasharray or None, opacity=opacity,
+        fill=fill,
+        stroke=stroke,
+        stroke_width=stroke_width,
+        stroke_dasharray=stroke_dasharray or None,
+        opacity=opacity,
         element_id=element_id or None,
     )
     return canvas_png_response(f"Polygon added (id={eid}).")
 
 
-@mcp.tool(structured_output=False)
+@mcp.tool
 def draw_path(
     d: str,
     fill: str = "none",
@@ -376,18 +431,21 @@ def draw_path(
     stroke_dasharray: str = "",
     opacity: float = 1.0,
     element_id: str = "",
-) -> list[types.ContentBlock]:
+) -> list[ContentBlock]:
     """Draw an SVG path. `d` is the path data string (e.g. 'M10 80 C 40 10, 65 10, 95 80 S 150 150, 180 80')."""
     eid = _draw_path(
         d=d,
-        fill=fill, stroke=stroke, stroke_width=stroke_width,
-        stroke_dasharray=stroke_dasharray or None, opacity=opacity,
+        fill=fill,
+        stroke=stroke,
+        stroke_width=stroke_width,
+        stroke_dasharray=stroke_dasharray or None,
+        opacity=opacity,
         element_id=element_id or None,
     )
     return canvas_png_response(f"Path added (id={eid}).")
 
 
-@mcp.tool(structured_output=False)
+@mcp.tool
 def draw_text(
     x: float,
     y: float,
@@ -400,18 +458,25 @@ def draw_text(
     opacity: float = 1.0,
     rotation: float = 0,
     element_id: str = "",
-) -> list[types.ContentBlock]:
+) -> list[ContentBlock]:
     """Draw text on the canvas."""
     eid = _draw_text(
-        x=x, y=y, text=text,
-        font_size=font_size, font_family=font_family,
-        fill=fill, text_anchor=text_anchor, font_weight=font_weight,
-        opacity=opacity, rotation=rotation, element_id=element_id or None,
+        x=x,
+        y=y,
+        text=text,
+        font_size=font_size,
+        font_family=font_family,
+        fill=fill,
+        text_anchor=text_anchor,
+        font_weight=font_weight,
+        opacity=opacity,
+        rotation=rotation,
+        element_id=element_id or None,
     )
     return canvas_png_response(f"Text added (id={eid}).")
 
 
-@mcp.tool(structured_output=False)
+@mcp.tool
 def draw_image(
     x: float,
     y: float,
@@ -420,22 +485,27 @@ def draw_image(
     href: str,
     opacity: float = 1.0,
     element_id: str = "",
-) -> list[types.ContentBlock]:
+) -> list[ContentBlock]:
     """Embed an external image (URL or data-URI) on the canvas."""
     eid = _draw_image(
-        x=x, y=y, width=width, height=height, href=href,
-        opacity=opacity, element_id=element_id or None,
+        x=x,
+        y=y,
+        width=width,
+        height=height,
+        href=href,
+        opacity=opacity,
+        element_id=element_id or None,
     )
     return canvas_png_response(f"Image added (id={eid}).")
 
 
-@mcp.tool(structured_output=False)
+@mcp.tool
 def draw_group(
     children: str,
     transform: str = "",
     opacity: float = 1.0,
     element_id: str = "",
-) -> list[types.ContentBlock]:
+) -> list[ContentBlock]:
     """Wrap one or more SVG fragments in a `<g>` group element.
 
     `children` — raw SVG fragments concatenated as a single string, e.g.
@@ -449,17 +519,19 @@ def draw_group(
     - Organising related shapes so they can be updated or removed together
     """
     eid = _draw_group(
-        children=children, transform=transform, opacity=opacity,
+        children=children,
+        transform=transform,
+        opacity=opacity,
         element_id=element_id or None,
     )
     return canvas_png_response(f"Group added (id={eid}).")
 
 
-@mcp.tool(structured_output=False)
+@mcp.tool
 def draw_raw_svg(
     svg_fragment: str,
     element_id: str = "",
-) -> list[types.ContentBlock]:
+) -> list[ContentBlock]:
     """Add an arbitrary SVG fragment to the canvas.
 
     Use for `<use>`, `<symbol>`, filters, or anything not covered by the other draw tools.

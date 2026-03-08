@@ -1,6 +1,6 @@
 """Tests for the _helpers module (style_attrs, canvas_png_response)."""
 
-from mcp import types
+from mcp.types import ImageContent, TextContent
 
 from svg_mcp._helpers import canvas_png_response, style_attrs
 from svg_mcp.canvas import Canvas, set_canvas
@@ -57,14 +57,14 @@ class TestCanvasPngResponse:
     def test_with_message_returns_text_and_image(self):
         result = canvas_png_response("hello")
         assert len(result) == 2
-        assert isinstance(result[0], types.TextContent)
+        assert isinstance(result[0], TextContent)
         assert result[0].text == "hello"
-        assert isinstance(result[1], types.ImageContent)
+        assert isinstance(result[1], ImageContent)
 
     def test_without_message_returns_image_only(self):
         result = canvas_png_response()
         assert len(result) == 1
-        assert isinstance(result[0], types.ImageContent)
+        assert isinstance(result[0], ImageContent)
 
     def test_image_is_png(self):
         result = canvas_png_response()
@@ -74,6 +74,7 @@ class TestCanvasPngResponse:
     def test_reflects_current_canvas(self):
         """Response PNG changes when the canvas changes."""
         import base64
+
         set_canvas(Canvas(width=10, height=10, background="white"))
         before = canvas_png_response()[0].data
 

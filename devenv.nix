@@ -12,6 +12,7 @@ let
       packages = [
         pkgs.treefmt
         pkgs.nixfmt
+        pkgs.ruff
         pkgs.cairo
       ];
     };

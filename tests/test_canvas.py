@@ -2,12 +2,12 @@
 
 import pytest
 
-from svg_mcp.canvas import Canvas, _DEFAULT_BG, _DEFAULT_HEIGHT, _DEFAULT_WIDTH
-
+from svg_mcp.canvas import _DEFAULT_BG, _DEFAULT_HEIGHT, _DEFAULT_WIDTH, Canvas
 
 # ---------------------------------------------------------------------------
 # Construction
 # ---------------------------------------------------------------------------
+
 
 class TestCanvasInit:
     def test_defaults(self):
@@ -28,6 +28,7 @@ class TestCanvasInit:
 # ---------------------------------------------------------------------------
 # add_element
 # ---------------------------------------------------------------------------
+
 
 class TestAddElement:
     def test_returns_auto_id(self):
@@ -64,6 +65,7 @@ class TestAddElement:
 # update_element
 # ---------------------------------------------------------------------------
 
+
 class TestUpdateElement:
     def test_updates_in_place(self):
         c = Canvas()
@@ -95,6 +97,7 @@ class TestUpdateElement:
 # remove_element
 # ---------------------------------------------------------------------------
 
+
 class TestRemoveElement:
     def test_removes_existing(self):
         c = Canvas()
@@ -124,6 +127,7 @@ class TestRemoveElement:
 # get_element_svg
 # ---------------------------------------------------------------------------
 
+
 class TestGetElementSvg:
     def test_returns_svg_for_known_id(self):
         c = Canvas()
@@ -138,6 +142,7 @@ class TestGetElementSvg:
 # ---------------------------------------------------------------------------
 # move_element (z-order)
 # ---------------------------------------------------------------------------
+
 
 class TestMoveElement:
     def setup_method(self):
@@ -186,6 +191,7 @@ class TestMoveElement:
 # clear
 # ---------------------------------------------------------------------------
 
+
 class TestClear:
     def test_removes_all_elements(self):
         c = Canvas()
@@ -211,6 +217,7 @@ class TestClear:
 # ---------------------------------------------------------------------------
 # resize
 # ---------------------------------------------------------------------------
+
 
 class TestResize:
     def test_changes_dimensions(self):
@@ -246,6 +253,7 @@ class TestResize:
 # add_def
 # ---------------------------------------------------------------------------
 
+
 class TestAddDef:
     def test_appends_def(self):
         c = Canvas()
@@ -269,6 +277,7 @@ class TestAddDef:
 # ---------------------------------------------------------------------------
 # Undo / redo
 # ---------------------------------------------------------------------------
+
 
 class TestUndoRedo:
     def test_undo_reverses_add(self):
@@ -310,6 +319,7 @@ class TestUndoRedo:
 
     def test_history_capped_at_max(self):
         from svg_mcp.canvas import _MAX_HISTORY
+
         c = Canvas()
         for i in range(_MAX_HISTORY + 10):
             c.add_element(f"<el{i}/>")
@@ -319,6 +329,7 @@ class TestUndoRedo:
 # ---------------------------------------------------------------------------
 # to_svg
 # ---------------------------------------------------------------------------
+
 
 class TestToSvg:
     def test_contains_svg_root(self):
@@ -344,7 +355,7 @@ class TestToSvg:
         c.add_def('<linearGradient id="g"/>')
         svg = c.to_svg()
         assert "<defs>" in svg
-        assert 'linearGradient' in svg
+        assert "linearGradient" in svg
 
     def test_no_defs_section_when_empty(self):
         c = Canvas()
@@ -361,6 +372,7 @@ class TestToSvg:
 # to_png_bytes / to_png_base64
 # ---------------------------------------------------------------------------
 
+
 class TestRendering:
     def test_to_png_bytes_returns_bytes(self):
         c = Canvas(width=10, height=10)
@@ -370,6 +382,7 @@ class TestRendering:
 
     def test_to_png_base64_is_valid_base64(self):
         import base64
+
         c = Canvas(width=10, height=10)
         b64 = c.to_png_base64()
         decoded = base64.b64decode(b64)

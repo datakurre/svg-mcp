@@ -4,18 +4,18 @@ from __future__ import annotations
 
 from typing import Literal
 
-from mcp import types
+from fastmcp.utilities.types import ContentBlock
 
 from svg_mcp._helpers import canvas_png_response
 from svg_mcp.canvas import get_canvas as _get_canvas
 from svg_mcp.server import mcp
 
 
-@mcp.tool(structured_output=False)
+@mcp.tool
 def reorder_element(
     element_id: str,
     direction: Literal["forward", "backward", "front", "back"],
-) -> list[types.ContentBlock]:
+) -> list[ContentBlock]:
     """Change the z-order (stacking position) of a canvas element.
 
     ``direction`` must be one of:

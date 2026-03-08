@@ -1,7 +1,7 @@
 """Tests for drawing core functions (_draw_*) and MCP tool wrappers."""
 
 import pytest
-from mcp import types
+from mcp.types import ImageContent, TextContent
 
 from svg_mcp.canvas import Canvas, get_canvas, set_canvas
 from svg_mcp.tools.drawing import (
@@ -29,10 +29,10 @@ from svg_mcp.tools.drawing import (
     draw_text,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def svg() -> str:
     return get_canvas().to_svg()
@@ -46,6 +46,7 @@ def elements():
 # _draw_rect
 # ---------------------------------------------------------------------------
 
+
 class TestDrawRect:
     def test_auto_id(self):
         eid = _draw_rect(x=0, y=0, width=10, height=10)
@@ -56,8 +57,16 @@ class TestDrawRect:
         assert eid == "r1"
 
     def test_svg_content(self):
-        _draw_rect(x=5, y=10, width=80, height=40, fill="red", stroke="blue",
-                   stroke_width=2, element_id="r")
+        _draw_rect(
+            x=5,
+            y=10,
+            width=80,
+            height=40,
+            fill="red",
+            stroke="blue",
+            stroke_width=2,
+            element_id="r",
+        )
         s = svg()
         assert 'x="5"' in s
         assert 'y="10"' in s
@@ -80,7 +89,9 @@ class TestDrawRect:
         assert "rotate" not in svg()
 
     def test_stroke_dasharray(self):
-        _draw_rect(x=0, y=0, width=10, height=10, stroke_dasharray="5,3", element_id="r")
+        _draw_rect(
+            x=0, y=0, width=10, height=10, stroke_dasharray="5,3", element_id="r"
+        )
         assert 'stroke-dasharray="5,3"' in svg()
 
     def test_opacity(self):
@@ -92,11 +103,12 @@ class TestDrawRect:
 # _draw_circle
 # ---------------------------------------------------------------------------
 
+
 class TestDrawCircle:
     def test_svg_content(self):
         _draw_circle(cx=50, cy=60, r=20, fill="green", element_id="c")
         s = svg()
-        assert '<circle' in s
+        assert "<circle" in s
         assert 'cx="50"' in s
         assert 'cy="60"' in s
         assert 'r="20"' in s
@@ -111,11 +123,12 @@ class TestDrawCircle:
 # _draw_ellipse
 # ---------------------------------------------------------------------------
 
+
 class TestDrawEllipse:
     def test_svg_content(self):
         _draw_ellipse(cx=100, cy=100, rx=50, ry=30, element_id="e")
         s = svg()
-        assert '<ellipse' in s
+        assert "<ellipse" in s
         assert 'rx="50"' in s
         assert 'ry="30"' in s
 
@@ -128,11 +141,12 @@ class TestDrawEllipse:
 # _draw_line
 # ---------------------------------------------------------------------------
 
+
 class TestDrawLine:
     def test_svg_content(self):
         _draw_line(x1=0, y1=0, x2=100, y2=100, stroke="red", element_id="l")
         s = svg()
-        assert '<line' in s
+        assert "<line" in s
         assert 'x1="0"' in s
         assert 'y1="0"' in s
         assert 'x2="100"' in s
@@ -152,11 +166,12 @@ class TestDrawLine:
 # _draw_polyline
 # ---------------------------------------------------------------------------
 
+
 class TestDrawPolyline:
     def test_svg_content(self):
         _draw_polyline(points="0,0 50,50 100,0", element_id="pl")
         s = svg()
-        assert '<polyline' in s
+        assert "<polyline" in s
         assert 'points="0,0 50,50 100,0"' in s
 
 
@@ -164,11 +179,12 @@ class TestDrawPolyline:
 # _draw_polygon
 # ---------------------------------------------------------------------------
 
+
 class TestDrawPolygon:
     def test_svg_content(self):
         _draw_polygon(points="100,10 40,198 190,78", fill="yellow", element_id="pg")
         s = svg()
-        assert '<polygon' in s
+        assert "<polygon" in s
         assert 'points="100,10 40,198 190,78"' in s
         assert 'fill="yellow"' in s
 
@@ -177,11 +193,12 @@ class TestDrawPolygon:
 # _draw_path
 # ---------------------------------------------------------------------------
 
+
 class TestDrawPath:
     def test_svg_content(self):
         _draw_path(d="M10 80 L90 80", stroke="purple", element_id="p")
         s = svg()
-        assert '<path' in s
+        assert "<path" in s
         assert 'd="M10 80 L90 80"' in s
         assert 'stroke="purple"' in s
 
@@ -190,19 +207,20 @@ class TestDrawPath:
 # _draw_text
 # ---------------------------------------------------------------------------
 
+
 class TestDrawText:
     def test_svg_content(self):
         _draw_text(x=10, y=20, text="Hello", font_size=24, fill="navy", element_id="t")
         s = svg()
-        assert '<text' in s
+        assert "<text" in s
         assert 'x="10"' in s
         assert 'y="20"' in s
-        assert 'Hello' in s
+        assert "Hello" in s
         assert 'font-size="24"' in s
         assert 'fill="navy"' in s
 
     def test_html_escaping(self):
-        _draw_text(x=0, y=0, text="<>&\"", element_id="t")
+        _draw_text(x=0, y=0, text='<>&"', element_id="t")
         s = svg()
         assert "&lt;" in s
         assert "&gt;" in s
@@ -225,25 +243,40 @@ class TestDrawText:
 # _draw_image
 # ---------------------------------------------------------------------------
 
+
 class TestDrawImage:
     def test_svg_content(self):
-        _draw_image(x=5, y=5, width=100, height=80,
-                    href="https://example.com/img.png", element_id="img")
+        _draw_image(
+            x=5,
+            y=5,
+            width=100,
+            height=80,
+            href="https://example.com/img.png",
+            element_id="img",
+        )
         s = svg()
-        assert '<image' in s
+        assert "<image" in s
         assert 'href="https://example.com/img.png"' in s
         assert 'width="100"' in s
         assert 'height="80"' in s
 
     def test_opacity(self):
-        _draw_image(x=0, y=0, width=10, height=10,
-                    href="data:image/png;base64,", opacity=0.3, element_id="img")
+        _draw_image(
+            x=0,
+            y=0,
+            width=10,
+            height=10,
+            href="data:image/png;base64,",
+            opacity=0.3,
+            element_id="img",
+        )
         assert 'opacity="0.3"' in svg()
 
 
 # ---------------------------------------------------------------------------
 # _draw_group
 # ---------------------------------------------------------------------------
+
 
 class TestDrawGroup:
     def test_wraps_children(self):
@@ -270,6 +303,7 @@ class TestDrawGroup:
 # _draw_raw_svg
 # ---------------------------------------------------------------------------
 
+
 class TestDrawRawSvg:
     def test_stores_fragment_verbatim(self):
         frag = '<use href="#symbol1" x="10" y="20"/>'
@@ -281,6 +315,7 @@ class TestDrawRawSvg:
 # MCP tool wrappers — return types and schema compatibility
 # ---------------------------------------------------------------------------
 
+
 class TestMcpToolWrappers:
     """MCP wrappers must return list[ContentBlock] with no anyOf in schemas."""
 
@@ -289,7 +324,7 @@ class TestMcpToolWrappers:
         assert len(result) >= 1
         # Last item is always the PNG preview
         img = result[-1]
-        assert isinstance(img, types.ImageContent)
+        assert isinstance(img, ImageContent)
         assert img.mimeType == "image/png"
 
     def test_draw_rect_result(self):
@@ -317,8 +352,9 @@ class TestMcpToolWrappers:
         self._check_result(draw_text(x=0, y=10, text="Hi"))
 
     def test_draw_image_result(self):
-        self._check_result(draw_image(x=0, y=0, width=10, height=10,
-                                      href="data:image/png;base64,"))
+        self._check_result(
+            draw_image(x=0, y=0, width=10, height=10, href="data:image/png;base64,")
+        )
 
     def test_draw_group_result(self):
         self._check_result(draw_group(children="<rect/>"))
@@ -340,8 +376,7 @@ class TestMcpToolWrappers:
         assert "stroke-dasharray" not in svg()
 
     def test_stroke_dasharray_value_applied(self):
-        draw_rect(x=0, y=0, width=10, height=10, stroke_dasharray="4,2",
-                  element_id="r")
+        draw_rect(x=0, y=0, width=10, height=10, stroke_dasharray="4,2", element_id="r")
         assert 'stroke-dasharray="4,2"' in svg()
 
 
@@ -349,11 +384,12 @@ class TestSchemaCompatibility:
     """Verify no anyOf in MCP tool schemas (the main compatibility fix)."""
 
     def _get_schemas(self):
+        import asyncio
+
         import svg_mcp
-        return {
-            t.name: t.parameters
-            for t in svg_mcp.mcp._tool_manager.list_tools()
-        }
+
+        tools = asyncio.run(svg_mcp.mcp.list_tools())
+        return {t.name: t.parameters for t in tools}
 
     def _find_anyof(self, schema, path=""):
         """Recursively find any anyOf occurrences in a schema."""
@@ -375,9 +411,9 @@ class TestSchemaCompatibility:
             issues = self._find_anyof(schema)
             for issue in issues:
                 all_issues.append(f"{tool_name}{issue}")
-        assert all_issues == [], (
-            f"Found anyOf in tool schemas (breaks LM Studio/Jan.ai): {all_issues}"
-        )
+        assert (
+            all_issues == []
+        ), f"Found anyOf in tool schemas (breaks LM Studio/Jan.ai): {all_issues}"
 
     def test_all_properties_have_simple_types(self):
         schemas = self._get_schemas()
@@ -390,6 +426,9 @@ class TestSchemaCompatibility:
 
     def test_tool_count(self):
         """Ensure all 22 tools are registered."""
+        import asyncio
+
         import svg_mcp
-        tools = svg_mcp.mcp._tool_manager.list_tools()
+
+        tools = asyncio.run(svg_mcp.mcp.list_tools())
         assert len(tools) == 22

@@ -4,10 +4,12 @@ from __future__ import annotations
 
 from typing import Any
 
-from mcp import types
+from fastmcp.utilities.types import ContentBlock
 
 from svg_mcp._helpers import canvas_png_response
-from svg_mcp.canvas import Canvas, get_canvas as _get_canvas, set_canvas
+from svg_mcp.canvas import Canvas
+from svg_mcp.canvas import get_canvas as _get_canvas
+from svg_mcp.canvas import set_canvas
 from svg_mcp.server import mcp
 
 # ---------------------------------------------------------------------------
@@ -16,6 +18,7 @@ from svg_mcp.server import mcp
 # The callables are imported lazily inside the function to avoid circular
 # imports at module load time.
 # ---------------------------------------------------------------------------
+
 
 def _dispatch(tool: str, args: dict[str, Any]) -> str:  # noqa: C901 (complexity ok)
     """Execute a single named tool with the given args dict.
@@ -26,56 +29,67 @@ def _dispatch(tool: str, args: dict[str, Any]) -> str:  # noqa: C901 (complexity
     # --- drawing ---
     if tool == "draw_rect":
         from svg_mcp.tools.drawing import _draw_rect
+
         eid = _draw_rect(**args)
         return f"Rectangle added (id={eid})."
 
     if tool == "draw_circle":
         from svg_mcp.tools.drawing import _draw_circle
+
         eid = _draw_circle(**args)
         return f"Circle added (id={eid})."
 
     if tool == "draw_ellipse":
         from svg_mcp.tools.drawing import _draw_ellipse
+
         eid = _draw_ellipse(**args)
         return f"Ellipse added (id={eid})."
 
     if tool == "draw_line":
         from svg_mcp.tools.drawing import _draw_line
+
         eid = _draw_line(**args)
         return f"Line added (id={eid})."
 
     if tool == "draw_polyline":
         from svg_mcp.tools.drawing import _draw_polyline
+
         eid = _draw_polyline(**args)
         return f"Polyline added (id={eid})."
 
     if tool == "draw_polygon":
         from svg_mcp.tools.drawing import _draw_polygon
+
         eid = _draw_polygon(**args)
         return f"Polygon added (id={eid})."
 
     if tool == "draw_path":
         from svg_mcp.tools.drawing import _draw_path
+
         eid = _draw_path(**args)
         return f"Path added (id={eid})."
 
     if tool == "draw_text":
         from svg_mcp.tools.drawing import _draw_text
+
         eid = _draw_text(**args)
         return f"Text added (id={eid})."
 
     if tool == "draw_image":
         from svg_mcp.tools.drawing import _draw_image
+
         eid = _draw_image(**args)
         return f"Image added (id={eid})."
 
     if tool == "draw_group":
         from svg_mcp.tools.drawing import _draw_group
+
         eid = _draw_group(**args)
         return f"Group added (id={eid})."
 
     if tool == "draw_raw_svg":
         from svg_mcp.tools.drawing import _draw_raw_svg
+
         eid = _draw_raw_svg(**args)
         return f"Raw SVG added (id={eid})."
 
@@ -115,6 +129,7 @@ def _dispatch(tool: str, args: dict[str, Any]) -> str:  # noqa: C901 (complexity
     # --- canvas management ---
     if tool == "create_canvas":
         from svg_mcp.canvas import _DEFAULT_BG, _DEFAULT_HEIGHT, _DEFAULT_WIDTH
+
         w = args.get("width", _DEFAULT_WIDTH)
         h = args.get("height", _DEFAULT_HEIGHT)
         bg = args.get("background", _DEFAULT_BG)
@@ -126,7 +141,8 @@ def _dispatch(tool: str, args: dict[str, Any]) -> str:  # noqa: C901 (complexity
         _get_canvas().resize(args["width"], args["height"], bg)
         return (
             f"Canvas resized to {args['width']}×{args['height']}"
-            + (f", background={bg}" if bg else "") + "."
+            + (f", background={bg}" if bg else "")
+            + "."
         )
 
     if tool == "clear_canvas":
@@ -146,10 +162,11 @@ def _dispatch(tool: str, args: dict[str, Any]) -> str:  # noqa: C901 (complexity
 # MCP tool
 # ---------------------------------------------------------------------------
 
-@mcp.tool(structured_output=False)
+
+@mcp.tool
 def batch(
     calls: list[dict[str, Any]],
-) -> list[types.ContentBlock]:
+) -> list[ContentBlock]:
     """Execute multiple tool calls in a single round-trip and return one canvas preview.
 
     This is the **preferred way** to draw complex scenes: instead of N separate

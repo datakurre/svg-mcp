@@ -1,6 +1,6 @@
 """Tests for element management MCP tools (elements.py) and z-order (zorder.py)."""
 
-from mcp import types
+from mcp.types import ImageContent, TextContent
 
 from svg_mcp.canvas import get_canvas
 from svg_mcp.tools.drawing import _draw_rect
@@ -17,17 +17,17 @@ class TestUpdateElement:
     def test_returns_success_message(self):
         _draw_rect(x=0, y=0, width=10, height=10, element_id="r")
         result = update_element(element_id="r", svg_fragment="<new/>")
-        text = next(b for b in result if isinstance(b, types.TextContent))
+        text = next(b for b in result if isinstance(b, TextContent))
         assert "updated" in text.text
 
     def test_returns_not_found_for_missing(self):
         result = update_element(element_id="ghost", svg_fragment="<x/>")
-        text = next(b for b in result if isinstance(b, types.TextContent))
+        text = next(b for b in result if isinstance(b, TextContent))
         assert "not found" in text.text
 
     def test_always_returns_png(self):
         result = update_element(element_id="ghost", svg_fragment="<x/>")
-        assert any(isinstance(b, types.ImageContent) for b in result)
+        assert any(isinstance(b, ImageContent) for b in result)
 
 
 class TestRemoveElement:
@@ -39,17 +39,17 @@ class TestRemoveElement:
     def test_returns_success_message(self):
         _draw_rect(x=0, y=0, width=10, height=10, element_id="r")
         result = remove_element(element_id="r")
-        text = next(b for b in result if isinstance(b, types.TextContent))
+        text = next(b for b in result if isinstance(b, TextContent))
         assert "removed" in text.text
 
     def test_returns_not_found_for_missing(self):
         result = remove_element(element_id="ghost")
-        text = next(b for b in result if isinstance(b, types.TextContent))
+        text = next(b for b in result if isinstance(b, TextContent))
         assert "not found" in text.text
 
     def test_always_returns_png(self):
         result = remove_element(element_id="ghost")
-        assert any(isinstance(b, types.ImageContent) for b in result)
+        assert any(isinstance(b, ImageContent) for b in result)
 
 
 class TestAddDef:
@@ -65,7 +65,7 @@ class TestAddDef:
 
     def test_returns_content_blocks(self):
         result = add_def(def_fragment="<filter/>")
-        assert any(isinstance(b, types.ImageContent) for b in result)
+        assert any(isinstance(b, ImageContent) for b in result)
 
 
 class TestReorderElement:
@@ -99,10 +99,10 @@ class TestReorderElement:
     def test_not_found_message(self):
         self._setup()
         result = reorder_element(element_id="ghost", direction="forward")
-        text = next(b for b in result if isinstance(b, types.TextContent))
+        text = next(b for b in result if isinstance(b, TextContent))
         assert "not found" in text.text or "limit" in text.text
 
     def test_always_returns_png(self):
         self._setup()
         result = reorder_element(element_id="a", direction="front")
-        assert any(isinstance(b, types.ImageContent) for b in result)
+        assert any(isinstance(b, ImageContent) for b in result)
