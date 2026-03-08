@@ -7,7 +7,7 @@ import copy
 import uuid
 from typing import Any
 
-import cairosvg
+import drawsvg as _drawsvg
 
 _DEFAULT_WIDTH = 800
 _DEFAULT_HEIGHT = 600
@@ -24,21 +24,53 @@ _MAX_SCALE = 8.0
 _MAX_HISTORY = 50
 
 
-def _clamp_dimension(value: int, name: str) -> tuple[int, str]:
+def _clamp_dimension(value: int, name: str) -> tuple[int, str, bool]:
     """Clamp *value* to [_MIN_DIMENSION, _MAX_DIMENSION].
 
-    Returns ``(clamped_value, warning_message)``; the warning is an empty
-    string when no clamping was needed.
+    Returns ``(clamped_value, warning_message, was_too_large)``; the warning
+    is an empty string when no clamping was needed.
     """
     if value < _MIN_DIMENSION:
-        return _MIN_DIMENSION, (
-            f"{name} {value} is too small; clamped to {_MIN_DIMENSION}."
+        return (
+            _MIN_DIMENSION,
+            (f"{name} {value} is too small; clamped to {_MIN_DIMENSION}."),
+            False,
         )
     if value > _MAX_DIMENSION:
-        return _MAX_DIMENSION, (
-            f"{name} {value} is unreasonably large; clamped to {_MAX_DIMENSION}."
+        return (
+            _MAX_DIMENSION,
+            (f"{name} {value} is unreasonably large; clamped to {_MAX_DIMENSION}."),
+            True,
         )
-    return value, ""
+    return value, "", False
+
+
+def _sanitize_dimensions(width: int, height: int) -> tuple[int, int, list[str]]:
+    """Clamp width and height and enforce a 4:3 aspect ratio when either
+    dimension is unreasonably large.
+
+    If one or both axes exceed *_MAX_DIMENSION*, the clamped dimension drives
+    a 4:3 recalculation of the partner axis so the canvas stays proportional
+    instead of producing an extreme aspect ratio (e.g. 16 384 × 600).
+
+    Returns ``(width, height, warnings)``.
+    """
+    w, w_warn, w_huge = _clamp_dimension(width, "width")
+    h, h_warn, h_huge = _clamp_dimension(height, "height")
+    warnings = [msg for msg in (w_warn, h_warn) if msg]
+
+    if w_huge or h_huge:
+        # When either axis is unreasonably large the requested aspect ratio is
+        # meaningless, so fall back to a consistent 4:3 canvas at the maximum
+        # safe width rather than producing an extreme or incoherent ratio.
+        w = _MAX_DIMENSION
+        h = _MAX_DIMENSION * 3 // 4
+        warnings.append(
+            f"Dimensions adjusted to {w}\u00d7{h} (4:3 at maximum width) "
+            "because one or more requested dimensions were unreasonably large."
+        )
+
+    return w, h, warnings
 
 
 class Canvas:
@@ -50,12 +82,11 @@ class Canvas:
         height: int = _DEFAULT_HEIGHT,
         background: str = _DEFAULT_BG,
     ):
-        width, w_warn = _clamp_dimension(width, "width")
-        height, h_warn = _clamp_dimension(height, "height")
+        width, height, dim_warnings = _sanitize_dimensions(width, height)
         self.width = width
         self.height = height
         self.background = background
-        self.warnings: list[str] = [w for w in (w_warn, h_warn) if w]
+        self.warnings: list[str] = dim_warnings
         self.elements: list[dict[str, Any]] = []  # [{id, svg}]
         self.defs: list[str] = []  # raw <defs> children
         self._history: list[dict[str, Any]] = []  # undo stack
@@ -165,14 +196,13 @@ class Canvas:
 
         Returns a list of warning strings produced by clamping (empty when none).
         """
-        width, w_warn = _clamp_dimension(width, "width")
-        height, h_warn = _clamp_dimension(height, "height")
+        width, height, dim_warnings = _sanitize_dimensions(width, height)
         self._push_history()
         self.width = width
         self.height = height
         if background is not None:
             self.background = background
-        return [w for w in (w_warn, h_warn) if w]
+        return dim_warnings
 
     def add_def(self, def_fragment: str) -> None:
         self._push_history()
@@ -200,11 +230,28 @@ class Canvas:
         return "\n".join(parts)
 
     def to_png_bytes(self, scale: float = 1.0) -> bytes:
-        return cairosvg.svg2png(
-            bytestring=self.to_svg().encode("utf-8"),
-            output_width=int(self.width * scale),
-            output_height=int(self.height * scale),
+        """Rasterise the canvas to PNG via drawsvg/Cairo.
+
+        Constructs a temporary ``drawsvg.Drawing`` from the stored SVG
+        fragments, sets the pixel scale, and rasterises via the bundled Cairo
+        backend — no direct ``cairosvg`` import required.
+        """
+        d = _drawsvg.Drawing(self.width, self.height)
+        if scale != 1.0:
+            d.set_pixel_scale(scale)
+        # Inject stored defs as raw fragments.
+        for def_frag in self.defs:
+            d.append_def(_drawsvg.Raw(def_frag))
+        # Background fill.
+        d.append(
+            _drawsvg.Raw(
+                f'<rect width="100%" height="100%" fill="{self.background}" />'
+            )
         )
+        # Canvas elements.
+        for el in self.elements:
+            d.append(_drawsvg.Raw(el["svg"]))
+        return d.rasterize().png_data
 
     def to_png_base64(self, scale: float = 1.0) -> str:
         return base64.b64encode(self.to_png_bytes(scale)).decode("ascii")

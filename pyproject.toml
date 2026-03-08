@@ -5,10 +5,8 @@ description = "MCP server for drawing SVGs on a persistent canvas and exporting 
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
-    "cairosvg>=2.8.2",
-    "click>=8.3.1",
+    "drawsvg[raster]>=2.4.1",
     "fastmcp>=3.1.0",
-    "mcp[cli]>=1.26.0",
 ]
 
 [project.scripts]

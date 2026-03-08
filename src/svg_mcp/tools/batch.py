@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastmcp.utilities.types import ContentBlock
+from fastmcp.utilities.types import Image
 
 from svg_mcp._helpers import canvas_png_response
 from svg_mcp.canvas import Canvas
@@ -107,7 +107,17 @@ def _dispatch(tool: str, args: dict[str, Any]) -> str:  # noqa: C901 (complexity
         return f"Element '{args['element_id']}' not found."
 
     if tool == "add_def":
-        _get_canvas().add_def(args["def_fragment"])
+        from svg_mcp.tools.elements import add_def as _add_def_tool
+
+        kind = args.get("kind", "")
+        if kind:
+            _add_def_tool(
+                kind=kind,
+                def_id=args.get("def_id", ""),
+                params=args.get("params", ""),
+            )
+        else:
+            _get_canvas().add_def(args.get("def_fragment", ""))
         return "Definition added to <defs>."
 
     # --- z-order ---
@@ -166,7 +176,7 @@ def _dispatch(tool: str, args: dict[str, Any]) -> str:  # noqa: C901 (complexity
 @mcp.tool
 def batch(
     calls: list[dict[str, Any]],
-) -> list[ContentBlock]:
+) -> list[str | Image]:
     """Execute multiple tool calls in a single round-trip and return one canvas preview.
 
     This is the **preferred way** to draw complex scenes: instead of N separate

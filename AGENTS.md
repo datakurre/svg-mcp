@@ -6,7 +6,7 @@ This file is the primary reference for AI coding agents (Copilot, Claude, etc.) 
 
 ## What this project is
 
-`svg-mcp` is a [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server that exposes a **persistent in-memory SVG canvas** as a set of tool calls. Every tool returns the current canvas rendered as a **base64 PNG image** so the calling agent can visually inspect progress after each step. The server is built with [FastMCP](https://github.com/jlowin/fastmcp) and renders PNGs via `cairosvg`.
+`svg-mcp` is a [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server that exposes a **persistent in-memory SVG canvas** as a set of tool calls. Every tool returns the current canvas rendered as a **PNG image** so the calling agent can visually inspect progress after each step. The server is built with [FastMCP](https://github.com/jlowin/fastmcp); SVG element construction and PNG rasterisation are handled by [`drawsvg`](https://github.com/cduck/drawsvg) (the `drawsvg[raster]` extra pulls in the Cairo backend).
 
 ---
 
@@ -20,7 +20,7 @@ src/
     __init__.py                Imports tools (side-effect: registers them) + re-exports mcp
     server.py                  FastMCP instance + system-prompt INSTRUCTIONS string
     canvas.py                  Canvas class, global singleton, get_canvas()/set_canvas()
-    _helpers.py                canvas_png_response() + style_attrs() shared by all tools
+    _helpers.py                canvas_png_response() shared by all tools
     tools/
       __init__.py              Imports all tool sub-modules to trigger @mcp.tool() registration
       batch.py                 batch(calls) — multi-operation tool (preferred for drawing)
@@ -75,7 +75,7 @@ The same rule applies in `_helpers.py`: `canvas_png_response()` must call `get_c
 | `resize(w, h, background=None)` | Change dimensions without clearing |
 | `add_def(fragment)` | Append to the `<defs>` block |
 | `to_svg() → str` | Render the full SVG document |
-| `to_png_bytes(scale=1.0) → bytes` | Rasterise via cairosvg |
+| `to_png_bytes(scale=1.0) → bytes` | Rasterise via `drawsvg.Drawing.rasterize()` |
 | `to_png_base64(scale=1.0) → str` | Base64-encoded PNG for tool responses |
 
 Every mutating method calls `_push_history()` first, enabling undo/redo up to 50 steps.
@@ -94,13 +94,13 @@ Every mutating method calls `_push_history()` first, enabling undo/redo up to 50
 Minimal template:
 
 ```python
-from fastmcp.utilities.types import ContentBlock
+from fastmcp.utilities.types import Image
 from svg_mcp._helpers import canvas_png_response
 from svg_mcp.canvas import get_canvas as _get_canvas
 from svg_mcp.server import mcp
 
 @mcp.tool
-def my_tool(param: str) -> list[ContentBlock]:
+def my_tool(param: str) -> list[str | Image]:
     """One-line description shown to the agent."""
     result = _get_canvas().some_method(param)
     return canvas_png_response(f"Done: {result}.")
@@ -148,7 +148,7 @@ directly. All drawing tools accept `element_id` (auto-generated UUID suffix if o
 | `draw_line` | `x1, y1, x2, y2, stroke_linecap` |
 | `draw_polyline` | `points` (space-separated `"x,y"` pairs, open shape) |
 | `draw_polygon` | `points` (closed shape) |
-| `draw_path` | `d` (SVG path data string) |
+| `draw_path` | `d` (SVG path data string); **or** arc convenience params: `arc_cx, arc_cy, arc_r, arc_start_deg, arc_end_deg, arc_cw` — provide one mode or the other, never both |
 | `draw_text` | `x, y, text, font_size, font_family, text_anchor, font_weight, rotation` |
 | `draw_image` | `x, y, width, height, href` (URL or data-URI) |
 | `draw_group` | `children` (raw SVG string), `transform`, `opacity` |
@@ -160,7 +160,7 @@ directly. All drawing tools accept `element_id` (auto-generated UUID suffix if o
 |---|---|
 | `update_element(element_id, svg_fragment)` | Preserves z-order; use `inspect(what="element", element_id=…)` first |
 | `remove_element(element_id)` | Permanent; use `history(action="undo")` to reverse |
-| `add_def(def_fragment)` | Appends to `<defs>`; IDs in defs can be referenced as `fill="url(#id)"` |
+| `add_def(def_fragment="", kind="", def_id="", params="")` | Appends to `<defs>`. **Raw mode**: pass `def_fragment` as a literal SVG string. **Typed mode**: set `kind` to one of `linear_gradient`, `radial_gradient`, `pattern`, `clip_path`, or `marker`; provide `def_id` and a JSON string in `params` (see source for field names). IDs in defs can be referenced via `fill="url(#id)"`. |
 
 ### History (`history.py`)
 
@@ -179,10 +179,73 @@ directly. All drawing tools accept `element_id` (auto-generated UUID suffix if o
 ## `_helpers.py` — shared utilities
 
 **`canvas_png_response(message="")`**  
-Builds the standard `list[ContentBlock]` return value: an optional `TextContent` block followed by an `ImageContent` block (PNG preview). Always call `get_canvas()` inside — never cache the canvas reference here.
+Builds the standard `list[str | Image]` return value: an optional `str` text block followed by a `fastmcp.utilities.types.Image` block (PNG preview). Always call `get_canvas()` inside — never cache the canvas reference here.
 
-**`style_attrs(fill, stroke, stroke_width, opacity, stroke_dasharray, extra)`**  
-Builds an SVG attribute string from common style parameters. Pass `extra={"font-size": "16"}` for non-standard attributes.
+> `style_attrs()` was removed in the drawsvg refactor. SVG attribute strings are no longer built by hand; use drawsvg constructor keyword arguments instead.
+
+---
+
+## drawsvg integration
+
+All SVG elements are built with [`drawsvg`](https://github.com/cduck/drawsvg) constructors rather than f-string concatenation, and the canvas is rasterised via `drawsvg[raster]` (Cairo-backed) instead of `cairosvg`.
+
+### Element serialisation — `_elem_svg()` in `drawing.py`
+
+`drawsvg` elements do not expose a simple `.as_svg()` method on their own. The private helper `_elem_svg(elem)` serialises any `DrawingElement` by:
+
+1. Creating a temporary `drawsvg.Drawing(1, 1)`,
+2. Calling `tmp.append(elem)`,
+3. Getting `tmp.as_svg()` and stripping the wrapper (`<?xml …>`, `<svg …>`, `</svg>`, `<defs>…</defs>`),
+4. Returning the trimmed fragment string.
+
+### drawsvg element quirks to be aware of
+
+| drawsvg call | Actual SVG output |
+|---|---|
+| `drawsvg.Line(x1, y1, x2, y2)` | `<path d="M{x1},{y1} L{x2},{y2}">` (NOT `<line>`) |
+| `drawsvg.Lines(*coords, close=False)` | `<path …>` (NOT `<polyline>`) |
+| `drawsvg.Lines(*coords, close=True)` | `<path …>` (NOT `<polygon>`) |
+| `drawsvg.Image(x, y, w, h, path=href)` | Uses `xlink:href` attribute (NOT `href`) |
+| `drawsvg.Text(text, size, x, y)` | Auto-HTML-escapes content; do **not** pre-escape |
+| `drawsvg.Arc(cx, cy, r, start, end, cw=…)` | `<path d="… A …">` (SVG arc command) |
+
+### Rasterisation
+
+```python
+# canvas.py  to_png_bytes()
+d = drawsvg.Drawing(self.width, self.height)
+d.set_pixel_scale(scale)           # only when scale != 1.0
+d.append_def(drawsvg.Raw(def_frag))
+d.append(drawsvg.Raw(element_svg))
+return d.rasterize().png_data      # bytes
+```
+
+### Typed defs — `add_def` typed mode
+
+When `kind` is set, `add_def` builds a drawsvg object and extracts its `<defs>` fragment via `_def_elem_to_svg()` (parallel helper to `_elem_svg`, using `tmp.append_def(elem)` + regex on `tmp.as_svg()`).
+
+Supported `kind` values and their `params` JSON fields:
+
+| `kind` | Required `params` fields |
+|---|---|
+| `linear_gradient` | `x1, y1, x2, y2` (0–1), `stops` list `{offset, color[, opacity]}`, optional `units` |
+| `radial_gradient` | `cx, cy, r, fx, fy` (0–1), `stops` list, optional `units` |
+| `pattern` | `width, height`, `children` (SVG fragment string), optional `units`, `content_units` |
+| `clip_path` | `children` (SVG fragment string) |
+| `marker` | `width, height`, `children` (SVG fragment string), optional `orient`, `units` |
+
+### Dependencies
+
+Only two runtime dependencies (see `pyproject.toml`):
+
+```toml
+dependencies = [
+    "drawsvg[raster]>=2.4.1",
+    "fastmcp>=3.1.0",
+]
+```
+
+`cairosvg` and the bare `mcp` package have been removed.
 
 ---
 

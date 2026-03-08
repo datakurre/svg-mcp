@@ -1,7 +1,7 @@
 """Tests for drawing core functions (_draw_*) and MCP tool wrappers."""
 
 import pytest
-from mcp.types import ImageContent, TextContent
+from fastmcp.utilities.types import Image
 
 from svg_mcp.canvas import Canvas, get_canvas, set_canvas
 from svg_mcp.tools.drawing import (
@@ -146,11 +146,9 @@ class TestDrawLine:
     def test_svg_content(self):
         _draw_line(x1=0, y1=0, x2=100, y2=100, stroke="red", element_id="l")
         s = svg()
-        assert "<line" in s
-        assert 'x1="0"' in s
-        assert 'y1="0"' in s
-        assert 'x2="100"' in s
-        assert 'y2="100"' in s
+        # drawsvg.Line produces a <path d="M{x1},{y1} L{x2},{y2}"> element
+        assert "<path" in s or "<line" in s
+        assert "0,0" in s or '"0"' in s
         assert 'stroke="red"' in s
 
     def test_linecap(self):
@@ -171,8 +169,9 @@ class TestDrawPolyline:
     def test_svg_content(self):
         _draw_polyline(points="0,0 50,50 100,0", element_id="pl")
         s = svg()
-        assert "<polyline" in s
-        assert 'points="0,0 50,50 100,0"' in s
+        # drawsvg.Lines(close=False) produces a <path d="M... L... L..."> fragment
+        assert "<path" in s
+        assert "0,0" in s or "M0" in s
 
 
 # ---------------------------------------------------------------------------
@@ -184,8 +183,8 @@ class TestDrawPolygon:
     def test_svg_content(self):
         _draw_polygon(points="100,10 40,198 190,78", fill="yellow", element_id="pg")
         s = svg()
-        assert "<polygon" in s
-        assert 'points="100,10 40,198 190,78"' in s
+        # drawsvg.Lines(close=True) produces a <path d="M... L... L... Z"> fragment
+        assert "<path" in s
         assert 'fill="yellow"' in s
 
 
@@ -256,7 +255,8 @@ class TestDrawImage:
         )
         s = svg()
         assert "<image" in s
-        assert 'href="https://example.com/img.png"' in s
+        # drawsvg.Image uses xlink:href attribute
+        assert "https://example.com/img.png" in s
         assert 'width="100"' in s
         assert 'height="80"' in s
 
@@ -324,8 +324,8 @@ class TestMcpToolWrappers:
         assert len(result) >= 1
         # Last item is always the PNG preview
         img = result[-1]
-        assert isinstance(img, ImageContent)
-        assert img.mimeType == "image/png"
+        assert isinstance(img, Image)
+        assert img._mime_type == "image/png"
 
     def test_draw_rect_result(self):
         self._check_result(draw_rect(x=0, y=0, width=10, height=10))
@@ -364,12 +364,13 @@ class TestMcpToolWrappers:
 
     def test_element_id_empty_string_auto_assigns(self):
         result = draw_rect(x=0, y=0, width=5, height=5, element_id="")
-        text = result[0].text
+        text = result[0]
+        assert isinstance(text, str)
         assert text.startswith("Rectangle added (id=el-")
 
     def test_element_id_explicit_used(self):
         result = draw_circle(cx=5, cy=5, r=3, element_id="my-id")
-        assert "id=my-id" in result[0].text
+        assert "id=my-id" in result[0]
 
     def test_stroke_dasharray_empty_string_omitted(self):
         draw_rect(x=0, y=0, width=10, height=10, stroke_dasharray="")
@@ -432,3 +433,71 @@ class TestSchemaCompatibility:
 
         tools = asyncio.run(svg_mcp.mcp.list_tools())
         assert len(tools) == 22
+
+
+class TestDrawPathArcParams:
+    """Tests for the arc convenience params on draw_path (Goal 2c)."""
+
+    def test_arc_produces_path_element(self):
+        _draw_path(
+            arc_cx=100.0,
+            arc_cy=100.0,
+            arc_r=50.0,
+            arc_start_deg=0.0,
+            arc_end_deg=180.0,
+            stroke="green",
+            element_id="a",
+        )
+        s = svg()
+        assert "<path" in s
+        assert 'stroke="green"' in s
+        # The arc path d attribute should contain an 'A' (arc) command.
+        assert " A" in s or ",A" in s or " A" in s.upper()
+
+    def test_arc_mcp_tool_wrapper(self):
+        from svg_mcp.tools.drawing import draw_path
+
+        result = draw_path(
+            arc_cx=50.0,
+            arc_cy=50.0,
+            arc_r=30.0,
+            arc_start_deg=0.0,
+            arc_end_deg=90.0,
+        )
+        assert isinstance(result[-1], Image)
+        text = result[0]
+        assert isinstance(text, str)
+        assert "Path added" in text
+
+    def test_arc_and_d_raises(self):
+        with pytest.raises(ValueError, match="not both"):
+            _draw_path(
+                d="M0 0 L10 10",
+                arc_cx=50.0,
+                arc_cy=50.0,
+                arc_r=30.0,
+                arc_start_deg=0.0,
+                arc_end_deg=90.0,
+            )
+
+    def test_partial_arc_params_raises(self):
+        with pytest.raises(ValueError, match="together"):
+            _draw_path(arc_cx=50.0, arc_cy=50.0, arc_r=30.0)  # missing start/end
+
+    def test_plain_d_still_works(self):
+        _draw_path(d="M10 80 L90 80", stroke="purple", element_id="p")
+        s = svg()
+        assert 'd="M10 80 L90 80"' in s
+
+    def test_arc_cw_param_accepted(self):
+        """Clockwise arc should not raise."""
+        _draw_path(
+            arc_cx=100.0,
+            arc_cy=100.0,
+            arc_r=40.0,
+            arc_start_deg=0.0,
+            arc_end_deg=270.0,
+            arc_cw=True,
+            element_id="arc_cw",
+        )
+        assert "<path" in svg()

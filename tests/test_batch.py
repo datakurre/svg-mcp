@@ -1,6 +1,6 @@
 """Tests for the batch MCP tool."""
 
-from mcp.types import ImageContent, TextContent
+from fastmcp.utilities.types import Image
 
 from svg_mcp.canvas import Canvas, get_canvas, set_canvas
 from svg_mcp.tools.batch import _dispatch, batch
@@ -156,7 +156,7 @@ class TestBatch:
             ]
         )
         assert isinstance(result, list)
-        assert any(isinstance(b, ImageContent) for b in result)
+        assert any(isinstance(b, Image) for b in result)
 
     def test_executes_all_operations(self):
         batch(
@@ -191,10 +191,10 @@ class TestBatch:
                 {"tool": "draw_circle", "args": {"cx": 5, "cy": 5, "r": 3}},
             ]
         )
-        text = next(b for b in result if isinstance(b, TextContent))
-        assert "2 operation(s)" in text.text
-        assert "Rectangle added" in text.text
-        assert "Circle added" in text.text
+        text = next(b for b in result if isinstance(b, str))
+        assert "2 operation(s)" in text
+        assert "Rectangle added" in text
+        assert "Circle added" in text
 
     def test_error_reported_not_raised(self):
         result = batch(
@@ -202,8 +202,8 @@ class TestBatch:
                 {"tool": "unknown_tool", "args": {}},
             ]
         )
-        text = next(b for b in result if isinstance(b, TextContent))
-        assert "Errors" in text.text or "error" in text.text.lower()
+        text = next(b for b in result if isinstance(b, str))
+        assert "Errors" in text or "error" in text.lower()
 
     def test_partial_failure_continues(self):
         """A bad step must not prevent subsequent steps from executing."""
@@ -223,14 +223,14 @@ class TestBatch:
             ]
         )
         assert any(e["id"] == "r" for e in get_canvas().elements)
-        text = next(b for b in result if isinstance(b, TextContent))
-        assert "Rectangle added" in text.text
+        text = next(b for b in result if isinstance(b, str))
+        assert "Rectangle added" in text
 
     def test_empty_calls_list(self):
         result = batch(calls=[])
-        assert any(isinstance(b, ImageContent) for b in result)
-        text = next(b for b in result if isinstance(b, TextContent))
-        assert "0 operation(s)" in text.text
+        assert any(isinstance(b, Image) for b in result)
+        text = next(b for b in result if isinstance(b, str))
+        assert "0 operation(s)" in text
 
     def test_create_canvas_in_batch(self):
         batch(

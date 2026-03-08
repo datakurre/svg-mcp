@@ -2,52 +2,19 @@
 
 from __future__ import annotations
 
-from fastmcp.utilities.types import ContentBlock
-from mcp.types import ImageContent, TextContent
+from fastmcp.utilities.types import Image
 
 from svg_mcp.canvas import get_canvas
 
 
-def canvas_png_response(message: str = "") -> list[ContentBlock]:
+def canvas_png_response(message: str = "") -> list[str | Image]:
     """Return a text block (optional) followed by the current canvas as a PNG.
 
     Always calls ``get_canvas()`` at call-time so that a canvas replacement
     (e.g. via ``create_canvas``) is immediately reflected in the preview.
     """
-    blocks: list[ContentBlock] = []
+    blocks: list[str | Image] = []
     if message:
-        blocks.append(TextContent(type="text", text=message))
-    blocks.append(
-        ImageContent(
-            type="image",
-            data=get_canvas().to_png_base64(),
-            mimeType="image/png",
-        )
-    )
+        blocks.append(message)
+    blocks.append(Image(data=get_canvas().to_png_bytes(), format="png"))
     return blocks
-
-
-def style_attrs(
-    fill: str | None = None,
-    stroke: str | None = None,
-    stroke_width: float | None = None,
-    opacity: float | None = None,
-    stroke_dasharray: str | None = None,
-    extra: dict[str, str] | None = None,
-) -> str:
-    """Build an SVG attribute string from common style parameters."""
-    parts: list[str] = []
-    if fill is not None:
-        parts.append(f'fill="{fill}"')
-    if stroke is not None:
-        parts.append(f'stroke="{stroke}"')
-    if stroke_width is not None:
-        parts.append(f'stroke-width="{stroke_width}"')
-    if stroke_dasharray is not None:
-        parts.append(f'stroke-dasharray="{stroke_dasharray}"')
-    if opacity is not None:
-        parts.append(f'opacity="{opacity}"')
-    if extra:
-        for k, v in extra.items():
-            parts.append(f'{k}="{v}"')
-    return " ".join(parts)

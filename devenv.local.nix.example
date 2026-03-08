@@ -6,12 +6,14 @@
       "podman"
       "vscode"
     ];
-    devcontainer.networkMode = "host";
     devcontainer.settings.customizations.vscode.extensions = [
-      "jnoortheen.nix-ide"
       "GitHub.copilot"
       "GitHub.copilot-chat"
+      "jnoortheen.nix-ide"
       "vscodevim.vim"
+    ];
+    devcontainer.vsix = [
+      "https://github.com/datakurre/devenv-vscode/releases/download/v0.1.0/devenv-0.1.0.vsix"
     ];
   };
 }

@@ -2,13 +2,35 @@
 
 from __future__ import annotations
 
-import html as _html
+import re as _re
 
-from fastmcp.utilities.types import ContentBlock
+import drawsvg as _draw
+from fastmcp.utilities.types import Image
 
-from svg_mcp._helpers import canvas_png_response, style_attrs
+from svg_mcp._helpers import canvas_png_response
 from svg_mcp.canvas import get_canvas as _get_canvas
 from svg_mcp.server import mcp
+
+# ---------------------------------------------------------------------------
+# Private helper: serialise a drawsvg element to an SVG fragment string.
+# We render it via a minimal temporary Drawing then strip the wrapper.
+# ---------------------------------------------------------------------------
+
+_DEFS_PAT = _re.compile(r"<defs>.*?</defs>", _re.DOTALL)
+
+
+def _elem_svg(elem: _draw.DrawingElement) -> str:
+    """Return the SVG fragment string for a single drawsvg element."""
+    tmp = _draw.Drawing(1, 1)
+    tmp.append(elem)
+    raw = tmp.as_svg()
+    # Strip XML declaration, SVG opening/closing tags, and empty defs block.
+    body = _re.sub(r"<\?xml[^?]*\?>", "", raw)
+    body = _re.sub(r"<svg[^>]*>", "", body)
+    body = _re.sub(r"</svg>", "", body)
+    body = _DEFS_PAT.sub("", body)
+    return body.strip()
+
 
 # ---------------------------------------------------------------------------
 # Pure core functions (no MCP dependency – usable from batch and tools alike)
@@ -30,22 +52,20 @@ def _draw_rect(
     rotation: float = 0,
     element_id: str | None = None,
 ) -> str:
-    style = style_attrs(
+    kwargs: dict = dict(
         fill=fill,
         stroke=stroke,
         stroke_width=stroke_width,
         opacity=opacity,
-        stroke_dasharray=stroke_dasharray,
     )
-    transform = (
-        f' transform="rotate({rotation} {x + width / 2} {y + height / 2})"'
-        if rotation
-        else ""
-    )
-    svg = (
-        f'<rect x="{x}" y="{y}" width="{width}" height="{height}" '
-        f'rx="{rx}" ry="{ry}" {style}{transform} />'
-    )
+    if stroke_dasharray:
+        kwargs["stroke_dasharray"] = stroke_dasharray
+    if rotation:
+        cx = x + width / 2
+        cy = y + height / 2
+        kwargs["transform"] = f"rotate({rotation} {cx} {cy})"
+    elem = _draw.Rectangle(x, y, width, height, rx=rx, ry=ry, **kwargs)
+    svg = _elem_svg(elem)
     return _get_canvas().add_element(svg, element_id)
 
 
@@ -60,14 +80,16 @@ def _draw_circle(
     opacity: float = 1.0,
     element_id: str | None = None,
 ) -> str:
-    style = style_attrs(
+    kwargs: dict = dict(
         fill=fill,
         stroke=stroke,
         stroke_width=stroke_width,
         opacity=opacity,
-        stroke_dasharray=stroke_dasharray,
     )
-    svg = f'<circle cx="{cx}" cy="{cy}" r="{r}" {style} />'
+    if stroke_dasharray:
+        kwargs["stroke_dasharray"] = stroke_dasharray
+    elem = _draw.Circle(cx, cy, r, **kwargs)
+    svg = _elem_svg(elem)
     return _get_canvas().add_element(svg, element_id)
 
 
@@ -84,15 +106,18 @@ def _draw_ellipse(
     rotation: float = 0,
     element_id: str | None = None,
 ) -> str:
-    style = style_attrs(
+    kwargs: dict = dict(
         fill=fill,
         stroke=stroke,
         stroke_width=stroke_width,
         opacity=opacity,
-        stroke_dasharray=stroke_dasharray,
     )
-    transform = f' transform="rotate({rotation} {cx} {cy})"' if rotation else ""
-    svg = f'<ellipse cx="{cx}" cy="{cy}" rx="{rx}" ry="{ry}" {style}{transform} />'
+    if stroke_dasharray:
+        kwargs["stroke_dasharray"] = stroke_dasharray
+    if rotation:
+        kwargs["transform"] = f"rotate({rotation} {cx} {cy})"
+    elem = _draw.Ellipse(cx, cy, rx, ry, **kwargs)
+    svg = _elem_svg(elem)
     return _get_canvas().add_element(svg, element_id)
 
 
@@ -108,16 +133,16 @@ def _draw_line(
     stroke_linecap: str = "round",
     element_id: str | None = None,
 ) -> str:
-    style = style_attrs(
+    kwargs: dict = dict(
         stroke=stroke,
         stroke_width=stroke_width,
         opacity=opacity,
-        stroke_dasharray=stroke_dasharray,
+        stroke_linecap=stroke_linecap,
     )
-    svg = (
-        f'<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" '
-        f'{style} stroke-linecap="{stroke_linecap}" />'
-    )
+    if stroke_dasharray:
+        kwargs["stroke_dasharray"] = stroke_dasharray
+    elem = _draw.Line(x1, y1, x2, y2, **kwargs)
+    svg = _elem_svg(elem)
     return _get_canvas().add_element(svg, element_id)
 
 
@@ -130,14 +155,22 @@ def _draw_polyline(
     opacity: float = 1.0,
     element_id: str | None = None,
 ) -> str:
-    style = style_attrs(
+    # Parse "x,y x,y …" into flat coordinate list for drawsvg.Lines.
+    coords: list[float] = []
+    for pair in points.strip().split():
+        x_s, y_s = pair.split(",")
+        coords.extend([float(x_s), float(y_s)])
+    kwargs: dict = dict(
         fill=fill,
         stroke=stroke,
         stroke_width=stroke_width,
         opacity=opacity,
-        stroke_dasharray=stroke_dasharray,
+        close=False,
     )
-    svg = f'<polyline points="{points}" {style} />'
+    if stroke_dasharray:
+        kwargs["stroke_dasharray"] = stroke_dasharray
+    elem = _draw.Lines(*coords, **kwargs)
+    svg = _elem_svg(elem)
     return _get_canvas().add_element(svg, element_id)
 
 
@@ -150,34 +183,75 @@ def _draw_polygon(
     opacity: float = 1.0,
     element_id: str | None = None,
 ) -> str:
-    style = style_attrs(
+    # Parse "x,y x,y …" into flat coordinate list for drawsvg.Lines.
+    coords: list[float] = []
+    for pair in points.strip().split():
+        x_s, y_s = pair.split(",")
+        coords.extend([float(x_s), float(y_s)])
+    kwargs: dict = dict(
         fill=fill,
         stroke=stroke,
         stroke_width=stroke_width,
         opacity=opacity,
-        stroke_dasharray=stroke_dasharray,
+        close=True,
     )
-    svg = f'<polygon points="{points}" {style} />'
+    if stroke_dasharray:
+        kwargs["stroke_dasharray"] = stroke_dasharray
+    elem = _draw.Lines(*coords, **kwargs)
+    svg = _elem_svg(elem)
     return _get_canvas().add_element(svg, element_id)
 
 
 def _draw_path(
-    d: str,
+    d: str = "",
     fill: str = "none",
     stroke: str = "black",
     stroke_width: float = 1,
     stroke_dasharray: str | None = None,
     opacity: float = 1.0,
     element_id: str | None = None,
+    # Arc convenience params — when provided, d is ignored.
+    arc_cx: float | None = None,
+    arc_cy: float | None = None,
+    arc_r: float | None = None,
+    arc_start_deg: float | None = None,
+    arc_end_deg: float | None = None,
+    arc_cw: bool = False,
 ) -> str:
-    style = style_attrs(
+    kwargs: dict = dict(
         fill=fill,
         stroke=stroke,
         stroke_width=stroke_width,
         opacity=opacity,
-        stroke_dasharray=stroke_dasharray,
     )
-    svg = f'<path d="{d}" {style} />'
+    if stroke_dasharray:
+        kwargs["stroke_dasharray"] = stroke_dasharray
+
+    arc_params = (arc_cx, arc_cy, arc_r, arc_start_deg, arc_end_deg)
+    if any(p is not None for p in arc_params):
+        # Validate that all arc params are supplied together.
+        if not all(p is not None for p in arc_params):
+            raise ValueError(
+                "All arc params (arc_cx, arc_cy, arc_r, arc_start_deg, arc_end_deg) "
+                "must be provided together."
+            )
+        if d and d.strip():
+            raise ValueError(
+                "Provide either a raw `d` path string or arc params, not both."
+            )
+        elem = _draw.Arc(
+            arc_cx,
+            arc_cy,
+            arc_r,
+            arc_start_deg,
+            arc_end_deg,  # type: ignore[arg-type]
+            cw=arc_cw,
+            **kwargs,
+        )
+    else:
+        elem = _draw.Path(d=d, **kwargs)
+
+    svg = _elem_svg(elem)
     return _get_canvas().add_element(svg, element_id)
 
 
@@ -194,18 +268,18 @@ def _draw_text(
     rotation: float = 0,
     element_id: str | None = None,
 ) -> str:
-    style = style_attrs(
+    kwargs: dict = dict(
         fill=fill,
         opacity=opacity,
-        extra={
-            "font-size": str(font_size),
-            "font-family": font_family,
-            "text-anchor": text_anchor,
-            "font-weight": font_weight,
-        },
+        text_anchor=text_anchor,
+        font_family=font_family,
+        font_weight=font_weight,
     )
-    transform = f' transform="rotate({rotation} {x} {y})"' if rotation else ""
-    svg = f'<text x="{x}" y="{y}" {style}{transform}>{_html.escape(text)}</text>'
+    if rotation:
+        kwargs["transform"] = f"rotate({rotation} {x} {y})"
+    # Pass raw text — drawsvg HTML-escapes content automatically.
+    elem = _draw.Text(text, font_size, x, y, **kwargs)
+    svg = _elem_svg(elem)
     return _get_canvas().add_element(svg, element_id)
 
 
@@ -218,11 +292,8 @@ def _draw_image(
     opacity: float = 1.0,
     element_id: str | None = None,
 ) -> str:
-    style = style_attrs(opacity=opacity)
-    svg = (
-        f'<image x="{x}" y="{y}" width="{width}" height="{height}" '
-        f'href="{href}" {style} />'
-    )
+    elem = _draw.Image(x, y, width, height, path=href, opacity=opacity)
+    svg = _elem_svg(elem)
     return _get_canvas().add_element(svg, element_id)
 
 
@@ -269,7 +340,7 @@ def draw_rect(
     opacity: float = 1.0,
     rotation: float = 0,
     element_id: str = "",
-) -> list[ContentBlock]:
+) -> list[str | Image]:
     """Draw a rectangle on the canvas."""
     eid = _draw_rect(
         x=x,
@@ -300,7 +371,7 @@ def draw_circle(
     stroke_dasharray: str = "",
     opacity: float = 1.0,
     element_id: str = "",
-) -> list[ContentBlock]:
+) -> list[str | Image]:
     """Draw a circle on the canvas."""
     eid = _draw_circle(
         cx=cx,
@@ -329,7 +400,7 @@ def draw_ellipse(
     opacity: float = 1.0,
     rotation: float = 0,
     element_id: str = "",
-) -> list[ContentBlock]:
+) -> list[str | Image]:
     """Draw an ellipse on the canvas."""
     eid = _draw_ellipse(
         cx=cx,
@@ -359,7 +430,7 @@ def draw_line(
     opacity: float = 1.0,
     stroke_linecap: str = "round",
     element_id: str = "",
-) -> list[ContentBlock]:
+) -> list[str | Image]:
     """Draw a straight line on the canvas."""
     eid = _draw_line(
         x1=x1,
@@ -385,7 +456,7 @@ def draw_polyline(
     stroke_dasharray: str = "",
     opacity: float = 1.0,
     element_id: str = "",
-) -> list[ContentBlock]:
+) -> list[str | Image]:
     """Draw a polyline (open shape). `points` is a space-separated list like '0,0 50,50 100,0'."""
     eid = _draw_polyline(
         points=points,
@@ -408,7 +479,7 @@ def draw_polygon(
     stroke_dasharray: str = "",
     opacity: float = 1.0,
     element_id: str = "",
-) -> list[ContentBlock]:
+) -> list[str | Image]:
     """Draw a polygon (closed shape). `points` is a space-separated list like '100,10 40,198 190,78 10,78 160,198'."""
     eid = _draw_polygon(
         points=points,
@@ -424,15 +495,34 @@ def draw_polygon(
 
 @mcp.tool
 def draw_path(
-    d: str,
+    d: str = "",
     fill: str = "none",
     stroke: str = "black",
     stroke_width: float = 1,
     stroke_dasharray: str = "",
     opacity: float = 1.0,
     element_id: str = "",
-) -> list[ContentBlock]:
-    """Draw an SVG path. `d` is the path data string (e.g. 'M10 80 C 40 10, 65 10, 95 80 S 150 150, 180 80')."""
+    arc_cx: float = 0,
+    arc_cy: float = 0,
+    arc_r: float = 0,
+    arc_start_deg: float = 0,
+    arc_end_deg: float = 0,
+    arc_cw: bool = False,
+) -> list[str | Image]:
+    """Draw an SVG path. `d` is the path data string (e.g. 'M10 80 C 40 10, 65 10, 95 80 S 150 150, 180 80').
+
+    Alternatively, supply arc convenience params to draw a circular arc without doing
+    trigonometry manually.  When any arc param is non-zero the `d` argument is ignored.
+
+    Arc params:
+    - ``arc_cx``, ``arc_cy`` — centre of the circle.
+    - ``arc_r``              — radius.
+    - ``arc_start_deg``      — start angle in degrees (0 = right, 90 = down).
+    - ``arc_end_deg``        — end angle in degrees.
+    - ``arc_cw``             — draw clockwise when True (default False = counter-clockwise).
+    """
+    # Detect whether the caller wants arc mode.
+    use_arc = arc_r != 0 or arc_start_deg != 0 or arc_end_deg != 0
     eid = _draw_path(
         d=d,
         fill=fill,
@@ -441,6 +531,12 @@ def draw_path(
         stroke_dasharray=stroke_dasharray or None,
         opacity=opacity,
         element_id=element_id or None,
+        arc_cx=arc_cx if use_arc else None,
+        arc_cy=arc_cy if use_arc else None,
+        arc_r=arc_r if use_arc else None,
+        arc_start_deg=arc_start_deg if use_arc else None,
+        arc_end_deg=arc_end_deg if use_arc else None,
+        arc_cw=arc_cw,
     )
     return canvas_png_response(f"Path added (id={eid}).")
 
@@ -458,7 +554,7 @@ def draw_text(
     opacity: float = 1.0,
     rotation: float = 0,
     element_id: str = "",
-) -> list[ContentBlock]:
+) -> list[str | Image]:
     """Draw text on the canvas."""
     eid = _draw_text(
         x=x,
@@ -485,7 +581,7 @@ def draw_image(
     href: str,
     opacity: float = 1.0,
     element_id: str = "",
-) -> list[ContentBlock]:
+) -> list[str | Image]:
     """Embed an external image (URL or data-URI) on the canvas."""
     eid = _draw_image(
         x=x,
@@ -505,7 +601,7 @@ def draw_group(
     transform: str = "",
     opacity: float = 1.0,
     element_id: str = "",
-) -> list[ContentBlock]:
+) -> list[str | Image]:
     """Wrap one or more SVG fragments in a `<g>` group element.
 
     `children` — raw SVG fragments concatenated as a single string, e.g.
@@ -531,7 +627,7 @@ def draw_group(
 def draw_raw_svg(
     svg_fragment: str,
     element_id: str = "",
-) -> list[ContentBlock]:
+) -> list[str | Image]:
     """Add an arbitrary SVG fragment to the canvas.
 
     Use for `<use>`, `<symbol>`, filters, or anything not covered by the other draw tools.

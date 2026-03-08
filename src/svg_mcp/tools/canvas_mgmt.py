@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from typing import Literal
 
-from fastmcp.utilities.types import ContentBlock
+from fastmcp.utilities.types import Image
 
 from svg_mcp._helpers import canvas_png_response
 from svg_mcp.canvas import (
@@ -25,7 +25,7 @@ def create_canvas(
     width: int = _DEFAULT_WIDTH,
     height: int = _DEFAULT_HEIGHT,
     background: str = _DEFAULT_BG,
-) -> list[ContentBlock]:
+) -> list[str | Image]:
     """Create or reset the canvas with the given dimensions and background colour."""
     c = Canvas(width=width, height=height, background=background)
     set_canvas(c)
@@ -40,7 +40,7 @@ def resize_canvas(
     width: int,
     height: int,
     background: str = "",
-) -> list[ContentBlock]:
+) -> list[str | Image]:
     """Resize the canvas without clearing its elements. Optionally change the background colour."""
     warnings = get_canvas().resize(width, height, background or None)
     c = get_canvas()
@@ -58,7 +58,7 @@ def resize_canvas(
 def inspect(
     what: Literal["canvas", "svg", "elements", "element"],
     element_id: str = "",
-) -> list[ContentBlock]:
+) -> list[str | Image]:
     """Inspect the current canvas state.
 
     ``what`` must be one of:
@@ -92,7 +92,7 @@ def inspect(
 
 
 @mcp.tool
-def clear_canvas() -> list[ContentBlock]:
+def clear_canvas() -> list[str | Image]:
     """Remove all elements (and defs) from the canvas, keeping its size and background."""
     get_canvas().clear()
     return canvas_png_response("Canvas cleared.")
@@ -103,7 +103,7 @@ def export(
     file_path: str,
     format: Literal["svg", "png"] = "svg",
     scale: float = 1.0,
-) -> list[ContentBlock]:
+) -> list[str | Image]:
     """Export the current canvas to a file.
 
     ``format``
